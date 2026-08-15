@@ -26,6 +26,20 @@ public partial class MainWindow : Window
 
     private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
+    private void NavigateWorkbench_OnClick(object sender, RoutedEventArgs e) { }
+
+    private void OpenResources_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
+
+    private void OpenSettings_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
+
+    private void OpenDiagnostics_OnClick(object sender, RoutedEventArgs e)
+    {
+        var logPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI字幕翻译", "logs", "app.log");
+        MessageBox.Show(this, $"{viewModel.SetupSummary}\n\n应用日志：\n{logPath}", "诊断中心",
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e) =>
         new BatchQueueWindow(viewModel) { Owner = this }.ShowDialog();
 
