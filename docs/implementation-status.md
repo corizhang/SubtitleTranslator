@@ -422,6 +422,11 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 修复真实 WPF 渲染发现的只读 `OverallProgress` TwoWay 绑定，明确使用 OneWay。
 - 应用及 MSI 版本提升为 `0.6.0`；后续阶段将把项目库和批量中心从独立窗口迁为同一外壳内的页面。
 
+## 2026-08-15 0.12.1 批量队列进度绑定热修复
+
+- 修复批量任务页启动异常：只读 `QueueProgress` 被 `ProgressBar.Value` 尝试以 TwoWay 模式回写。
+- 将队列总进度绑定显式设为 OneWay，与工作台只读进度属性采用相同约束。
+
 ## 2026-08-15 0.12.0 批量任务高保真重构
 
 - 批量任务页按产品设计稿重组为顶栏操作、四项实时概览、处理队列和右侧任务检查器。
