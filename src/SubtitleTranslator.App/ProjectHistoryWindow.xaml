@@ -1,0 +1,75 @@
+<Window x:Class="SubtitleTranslator.App.ProjectHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="项目历史与任务恢复" Width="1060" Height="700" MinWidth="900" MinHeight="580"
+        Background="#F4F6FA" WindowStartupLocation="CenterOwner" Loaded="Window_OnLoaded">
+    <Window.Resources>
+        <Style TargetType="Button"><Setter Property="Padding" Value="13,7"/><Setter Property="Margin" Value="0,0,8,0"/></Style>
+    </Window.Resources>
+    <Grid Margin="28">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid>
+            <StackPanel>
+                <TextBlock Text="项目历史与任务恢复" FontSize="27" FontWeight="SemiBold" Foreground="#172033"/>
+                <TextBlock Text="查看阶段状态、继续中断任务并管理本地缓存" Foreground="#667085" Margin="0,5,0,0"/>
+            </StackPanel>
+            <Button Content="刷新" Click="Refresh_OnClick" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,22,0,16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+            <Border Background="White" CornerRadius="9" Padding="12">
+                <ListView ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" BorderThickness="0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="项目" Width="210" DisplayMemberBinding="{Binding Name}"/>
+                            <GridViewColumn Header="状态" Width="105" DisplayMemberBinding="{Binding Status}"/>
+                            <GridViewColumn Header="进度" Width="65" DisplayMemberBinding="{Binding ProgressPercent, StringFormat={}{0}%}"/>
+                            <GridViewColumn Header="更新时间" Width="125" DisplayMemberBinding="{Binding UpdatedDisplay}"/>
+                            <GridViewColumn Header="占用" Width="75" DisplayMemberBinding="{Binding SizeDisplay}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Border>
+
+            <Border Grid.Column="2" Background="White" CornerRadius="9" Padding="20">
+                <Grid>
+                    <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding SelectedProject.Name}" FontSize="20" FontWeight="SemiBold" Foreground="#27324A" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding SelectedProject.SourcePath}" Foreground="#667085" TextWrapping="Wrap" Margin="0,6,0,12"/>
+                        <Grid Margin="0,0,0,14">
+                            <TextBlock Text="{Binding SelectedProject.Status}" Foreground="#315EFB" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding SelectedProject.SizeDisplay}" HorizontalAlignment="Right" Foreground="#667085"/>
+                        </Grid>
+                        <ProgressBar Minimum="0" Maximum="100" Value="{Binding SelectedProject.ProgressPercent, Mode=OneWay}" Height="7" Margin="0,0,0,18"/>
+                        <TextBlock Text="阶段详情" FontWeight="SemiBold" Foreground="#344054" Margin="0,0,0,8"/>
+                        <ListView ItemsSource="{Binding SelectedProject.Stages}" BorderThickness="0" MaxHeight="310">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#EAECF0" BorderThickness="0,0,0,1" Padding="2,8">
+                                        <StackPanel>
+                                            <Grid><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding State}" HorizontalAlignment="Right" Foreground="#315EFB"/></Grid>
+                                            <TextBlock Text="{Binding Error}" Foreground="#B42318" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <TextBlock Text="{Binding Message}" Foreground="#667085" VerticalAlignment="Center"/>
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="继续任务" Click="Resume_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0"/>
+                <Button Content="打开字幕" Click="OpenSubtitle_OnClick"/>
+                <Button Content="打开项目目录" Click="OpenFolder_OnClick"/>
+                <Button Content="清理缓存" Click="DeleteCache_OnClick"/>
+                <Button Content="删除项目" Click="DeleteProject_OnClick" Foreground="#B42318"/>
+                <Button Content="关闭" Click="Close_OnClick"/>
+            </WrapPanel>
+        </Grid>
+    </Grid>
+</Window>

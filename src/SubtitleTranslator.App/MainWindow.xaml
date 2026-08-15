@@ -34,8 +34,10 @@
                 <TextBlock Text="本地识别音频，使用 DeepSeek 翻译并生成中文或双语字幕"
                            Margin="0,6,0,0" FontSize="14" Foreground="#667085" />
             </StackPanel>
-            <Button Content="配置向导" Click="OpenSetupWizard_OnClick" HorizontalAlignment="Right"
-                    VerticalAlignment="Center" Background="White" BorderBrush="#B8C1D5" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Content="项目历史" Click="OpenProjectHistory_OnClick" Background="White" BorderBrush="#B8C1D5" />
+                <Button Content="配置向导" Click="OpenSetupWizard_OnClick" Background="White" BorderBrush="#B8C1D5" />
+            </StackPanel>
         </Grid>
 
         <Border Grid.Row="1" x:Name="DropArea" AllowDrop="True"

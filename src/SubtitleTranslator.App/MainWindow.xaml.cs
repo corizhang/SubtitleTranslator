@@ -26,6 +26,18 @@ public partial class MainWindow : Window
 
     private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
+    private async void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
+    {
+        var window = new ProjectHistoryWindow { Owner = this };
+        if (window.ShowDialog() == true && window.ResumeSourcePath is not null)
+        {
+            await viewModel.SelectVideoAsync(window.ResumeSourcePath);
+            MessageBox.Show(this,
+                "已加载原视频。点击“开始生成字幕”后，应用会复用有效缓存；若翻译缓存已清理，可能再次产生 DeepSeek API 费用。",
+                "任务已准备恢复", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
     private void ShowSetupWizard()
     {
         var wizard = new SetupWizardWindow(viewModel) { Owner = this };
