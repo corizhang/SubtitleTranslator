@@ -13,6 +13,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private bool startupHandled;
     private BatchQueuePage? batchQueuePage;
     private ProjectLibraryPage? projectLibraryPage;
+    private ResourceManagementPage? resourceManagementPage;
 
     public MainWindow()
     {
@@ -37,7 +38,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(null, WorkbenchNavigation);
     }
 
-    private void OpenResources_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
+    private void OpenResources_OnClick(object sender, RoutedEventArgs e)
+    {
+        resourceManagementPage ??= new ResourceManagementPage(viewModel, ShowSetupWizard);
+        ShowPage(resourceManagementPage, ResourcesNavigation);
+    }
 
     private void OpenSettings_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
@@ -91,7 +96,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         PageHost.Content = page;
         PageHost.Visibility = page is null ? Visibility.Collapsed : Visibility.Visible;
 
-        foreach (var button in new[] { WorkbenchNavigation, BatchNavigation, ProjectsNavigation })
+        foreach (var button in new[] { WorkbenchNavigation, BatchNavigation, ProjectsNavigation, ResourcesNavigation })
             button.Style = (Style)FindResource("NavigationButtonStyle");
         selectedNavigation.Style = (Style)FindResource("SelectedNavigationButtonStyle");
     }

@@ -16,7 +16,7 @@
                     <Button x:Name="WorkbenchNavigation" Style="{StaticResource SelectedNavigationButtonStyle}" Click="NavigateWorkbench_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Home24" Width="28"/><TextBlock Text="工作台" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button x:Name="BatchNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenBatchQueue_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="List24" Width="28"/><TextBlock Text="批量任务" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button x:Name="ProjectsNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenProjectHistory_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Folder24" Width="28"/><TextBlock Text="项目库" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenResources_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Box24" Width="28"/><TextBlock Text="资源与模型" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="ResourcesNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenResources_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Box24" Width="28"/><TextBlock Text="资源与模型" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenSettings_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Settings24" Width="28"/><TextBlock Text="设置" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
                 <StackPanel Grid.Row="2">

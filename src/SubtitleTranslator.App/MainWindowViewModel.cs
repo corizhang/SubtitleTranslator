@@ -188,6 +188,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool IsSelfTesting { get => isSelfTesting; private set { Set(ref isSelfTesting, value); RefreshCommands(); } }
     public bool HasSavedApiKey => !string.IsNullOrWhiteSpace(deepSeekApiKey);
     public bool NeedsInitialSetup => environmentReport?.CanGenerateSubtitles != true || !HasSavedApiKey;
+    public int ReadyResourceCount => new[] { "ffmpeg", "ffprobe", "whisper-runtime", "vad", "whisper-model" }.Count(IsComponentReady) + (HasSavedApiKey ? 1 : 0);
+    public int TotalResourceCount => 6;
+    public bool AreResourcesReady => environmentReport?.CanGenerateSubtitles == true && HasSavedApiKey;
+    public string ResourceReadinessDisplay => AreResourcesReady ? "字幕处理环境已就绪" : $"已就绪 {ReadyResourceCount}/{TotalResourceCount}，仍有资源需要处理";
+    public string FfmpegStatus => ComponentStatus("ffmpeg", "ffprobe");
+    public string FfmpegPathDisplay => ComponentPath("ffmpeg");
+    public string RuntimeStatus => ComponentStatus("whisper-runtime");
+    public string RuntimePathDisplay => settings.WhisperRuntimePath ?? "尚未选择 runtime 目录";
+    public string VadStatus => ComponentStatus("vad");
+    public string VadPathDisplay => settings.VadModelPath ?? "尚未选择 VAD 模型";
+    public string WhisperModelStatus => ComponentStatus("whisper-model");
+    public string WhisperModelPathDisplay => selectedModelPath ?? "尚未选择 Whisper 模型";
     public string SelectedPublishLocation { get => selectedPublishLocation; set { Set(ref selectedPublishLocation, value); Notify(nameof(PublicationPreview)); } }
     public string SelectedNamingStrategy { get => selectedNamingStrategy; set { Set(ref selectedNamingStrategy, value); Notify(nameof(PublicationPreview)); } }
     public string SelectedConflictPolicy { get => selectedConflictPolicy; set => Set(ref selectedConflictPolicy, value); }
@@ -421,6 +433,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         DeepSeekConnectionStatus = "密钥已更新，请执行连接测试。";
         Notify(nameof(HasSavedApiKey));
         Notify(nameof(NeedsInitialSetup));
+        NotifyResourceProperties();
         RefreshCommands();
     }
 
@@ -703,6 +716,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         DeepSeekConnectionStatus = "保存密钥后可测试连接。";
         Notify(nameof(HasSavedApiKey));
         Notify(nameof(NeedsInitialSetup));
+        NotifyResourceProperties();
         RefreshCommands();
     }
 
@@ -750,6 +764,26 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         HardwareStatus = $"{gpu}  ·  {cuda}  ·  当前 runtime：{hardware.RuntimeKind}" +
             (hardware.Warnings.Count == 0 ? string.Empty : $"  ·  {string.Join("；", hardware.Warnings)}");
         Notify(nameof(NeedsInitialSetup));
+        NotifyResourceProperties();
+    }
+
+    private string ComponentStatus(params string[] ids)
+    {
+        if (environmentReport is null) return "等待检测";
+        var components = environmentReport.Components.Where(x => ids.Contains(x.Id)).ToArray();
+        return components.Length > 0 && components.All(x => x.State == ComponentState.Ready)
+            ? "已就绪"
+            : string.Join("；", components.Where(x => x.State != ComponentState.Ready).Select(x => x.Message));
+    }
+
+    private string ComponentPath(string id) => environmentReport?.Components.FirstOrDefault(x => x.Id == id)?.ResolvedPath ?? "尚未配置";
+
+    private void NotifyResourceProperties()
+    {
+        Notify(nameof(ReadyResourceCount)); Notify(nameof(AreResourcesReady)); Notify(nameof(ResourceReadinessDisplay));
+        Notify(nameof(FfmpegStatus)); Notify(nameof(FfmpegPathDisplay)); Notify(nameof(RuntimeStatus));
+        Notify(nameof(RuntimePathDisplay)); Notify(nameof(VadStatus)); Notify(nameof(VadPathDisplay));
+        Notify(nameof(WhisperModelStatus)); Notify(nameof(WhisperModelPathDisplay));
     }
 
     private bool CanInstallComponent() => !IsRunning && !IsModelDownloading && !IsComponentInstalling;
