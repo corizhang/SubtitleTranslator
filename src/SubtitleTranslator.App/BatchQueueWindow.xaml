@@ -26,7 +26,7 @@
             <TextBlock Text="{Binding Message}" Foreground="#667085" VerticalAlignment="Center"/>
             <WrapPanel HorizontalAlignment="Right">
                 <Button Content="打开字幕" Click="OpenSubtitle_OnClick"/>
-                <Button Content="重试失败/取消项" Click="Retry_OnClick" IsEnabled="{Binding CanEdit}"/>
+                <Button Content="从断点重试失败项" ToolTip="重新进入处理流水线，并自动跳过已有有效缓存的阶段" Click="Retry_OnClick" IsEnabled="{Binding CanEdit}"/>
                 <Button Content="停止队列" Click="Cancel_OnClick"/>
                 <Button Content="开始队列" Click="Start_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" IsEnabled="{Binding CanEdit}"/>
                 <Button Content="关闭" Click="Close_OnClick"/>

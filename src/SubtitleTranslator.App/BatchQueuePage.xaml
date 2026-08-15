@@ -33,7 +33,7 @@
             </Border>
         </Grid>
         <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="24,14">
-            <Grid><TextBlock Text="{Binding Message}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="重试失败/取消项" Click="Retry_OnClick" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="{Binding CanEdit}"/><Button Content="停止队列" Click="Cancel_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/></StackPanel></Grid>
+            <Grid><TextBlock Text="{Binding Message}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="从断点重试失败项" ToolTip="重新进入处理流水线，并自动跳过已有有效缓存的阶段" Click="Retry_OnClick" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="{Binding CanEdit}"/><Button Content="停止队列" Click="Cancel_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/></StackPanel></Grid>
         </Border>
     </Grid>
 </UserControl>

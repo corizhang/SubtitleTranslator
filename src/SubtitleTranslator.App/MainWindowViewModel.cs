@@ -39,6 +39,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private CancellationTokenSource? modelDownloadCancellation;
     private CancellationTokenSource? componentInstallCancellation;
     private CancellationTokenSource? selfTestCancellation;
+    private Action? externalCancel;
+    private string? resumeProjectDirectory;
     private string? selectedFilePath;
     private string selectedOutputMode = "中文 + 原语言双字幕";
     private string selectedQualityMode = "自动（推荐）";
@@ -239,6 +241,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (!File.Exists(path)) { ValidationMessage = "所选文件不存在。"; return; }
         if (!SupportedExtensions.Contains(Path.GetExtension(path))) { ValidationMessage = "暂不支持此文件格式。"; return; }
         SelectedFilePath = Path.GetFullPath(path);
+        resumeProjectDirectory = null;
         Notify(nameof(PublicationPreview));
         ValidationMessage = string.Empty;
         StatusMessage = $"已选择：{Path.GetFileName(path)}。";
@@ -250,6 +253,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RefreshCommands();
         await LoadAudioTracksAsync();
     }
+
+    public async Task ResumeProjectAsync(ProjectHistoryItem project)
+    {
+        await SelectVideoAsync(project.SourcePath);
+        if (!string.Equals(SelectedFilePath, Path.GetFullPath(project.SourcePath), StringComparison.OrdinalIgnoreCase)) return;
+        resumeProjectDirectory = project.ProjectDirectory;
+        CurrentStage = "等待继续";
+        OverallProgress = project.ProgressPercent;
+        StatusMessage = $"已关联原项目“{project.Name}”；开始后会从未完成阶段继续，并复用有效缓存。";
+    }
+
+    public Task StartPreparedTaskAsync() => StartAsync();
 
     private async Task LoadAudioTracksAsync()
     {
@@ -276,6 +291,38 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         runCancellation?.Cancel(); modelDownloadCancellation?.Cancel();
         componentInstallCancellation?.Cancel(); selfTestCancellation?.Cancel();
+        externalCancel?.Invoke();
+    }
+
+    public void BeginExternalTask(string mediaPath, Action cancel)
+    {
+        externalCancel = cancel;
+        IsRunning = true;
+        CurrentStage = "准备批量任务";
+        OverallProgress = 0;
+        StatusMessage = $"批量队列正在处理：{Path.GetFileName(mediaPath)}";
+        ValidationMessage = string.Empty;
+    }
+
+    public void ReportExternalTask(string mediaPath, PipelineProgress progress)
+    {
+        CurrentStage = StageName(progress.Stage);
+        OverallProgress = CalculateOverallProgress(progress.Stage, progress.Percent);
+        StatusMessage = $"批量任务：{Path.GetFileName(mediaPath)} · {progress.Message ?? "正在处理……"}";
+    }
+
+    public void ReportExternalItemResult(string mediaPath, bool success, string message)
+    {
+        CurrentStage = success ? "批量项目完成" : "批量项目未完成";
+        StatusMessage = $"{Path.GetFileName(mediaPath)}：{message}";
+        if (success) OverallProgress = 100;
+    }
+
+    public async Task EndExternalTaskAsync()
+    {
+        externalCancel = null;
+        IsRunning = false;
+        await RefreshRecentProjectsAsync();
     }
 
     public async Task SelectLocalModelAsync(string path)
@@ -377,9 +424,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (!SupportedExtensions.Contains(Path.GetExtension(mediaPath))) throw new InvalidOperationException("暂不支持此视频格式。");
         var modelPath = selectedModelPath ?? throw new InvalidOperationException("尚未配置 Whisper 模型。");
         var vadPath = settings.VadModelPath ?? throw new InvalidOperationException("尚未配置 VAD 模型。");
-        var projectName = MakeSafeName(Path.GetFileNameWithoutExtension(mediaPath)) + "-" +
-            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(mediaPath).ToUpperInvariant())))[..8].ToLowerInvariant();
-        var projectDirectory = Path.Combine(GetUserDataRoot(), "projects", projectName);
+        var projectDirectory = await ResolveProjectDirectoryAsync(mediaPath);
         var outputDirectory = Path.Combine(projectDirectory, "exports");
         var qualityMode = SelectedQualityMode.StartsWith("生成", StringComparison.Ordinal)
             ? SubtitleQualityMode.Suggest
@@ -413,8 +458,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        var projectName = MakeSafeName(Path.GetFileNameWithoutExtension(SelectedFilePath));
-        var projectDirectory = Path.Combine(GetUserDataRoot(), "projects", projectName);
+        var projectDirectory = resumeProjectDirectory ?? await ResolveProjectDirectoryAsync(SelectedFilePath);
         var outputDirectory = Path.Combine(projectDirectory, "exports");
         var qualityMode = SelectedQualityMode.StartsWith("生成", StringComparison.Ordinal)
             ? SubtitleQualityMode.Suggest
@@ -456,6 +500,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 SelectedFilePath, preferred, projectDirectory, BuildPublicationOptions());
             var publication = await publicationService.PublishAndRecordAsync(publicationRequest, runCancellation.Token);
             resultProjectDirectory = projectDirectory;
+            resumeProjectDirectory = projectDirectory;
             ResultSubtitlePath = publication.Success ? publication.PublishedPath ?? preferred : preferred;
             resultOutputDirectory = Path.GetDirectoryName(ResultSubtitlePath);
             CurrentStage = "处理完成";
@@ -498,6 +543,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         (InstallCudaRuntimeCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (CancelComponentInstallCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RunSelfTestCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private async Task<string> ResolveProjectDirectoryAsync(string mediaPath)
+    {
+        var fullMediaPath = Path.GetFullPath(mediaPath);
+        var existing = (await projectHistoryService.LoadAsync(CancellationToken.None)).FirstOrDefault(x =>
+            string.Equals(Path.GetFullPath(x.SourcePath), fullMediaPath, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing.ProjectDirectory;
+
+        var projectName = MakeSafeName(Path.GetFileNameWithoutExtension(fullMediaPath)) + "-" +
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(fullMediaPath.ToUpperInvariant())))[..8].ToLowerInvariant();
+        return Path.Combine(GetUserDataRoot(), "projects", projectName);
     }
 
     private static string StageName(string stage) => stage switch

@@ -62,13 +62,19 @@ public partial class MainWindow : Window
     private async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: ProjectHistoryItem project }) return;
+        if (viewModel.IsRunning)
+        {
+            MessageBox.Show(this, "已有任务正在处理，请等待完成或先取消当前任务。", "任务处理中", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         if (!project.SourceExists)
         {
             MessageBox.Show(this, "原视频已经移动或删除，请把视频放回原路径后再继续。", "无法继续", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        await viewModel.SelectVideoAsync(project.SourcePath);
+        await viewModel.ResumeProjectAsync(project);
         ShowPage(null, WorkbenchNavigation);
+        await viewModel.StartPreparedTaskAsync();
     }
 
     private void ShowPage(UserControl? page, Button selectedNavigation)

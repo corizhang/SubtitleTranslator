@@ -107,7 +107,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         if (IsRunning) return;
         if (retryFailed)
             foreach (var item in Items.Where(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled))
-            { item.State = BatchTaskState.Pending; item.Progress = 0; item.Stage = "等待重试"; item.Error = null; }
+            { item.State = BatchTaskState.Pending; item.Progress = 0; item.Stage = "等待从缓存断点继续"; item.Error = null; }
         var pending = Items.Where(x => x.State == BatchTaskState.Pending).ToArray();
         if (pending.Length == 0) { Message = "没有等待处理的任务。"; return; }
         try { await main.PrepareBatchAsync(); }
@@ -115,26 +115,38 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
 
         cancellation = new CancellationTokenSource();
         IsRunning = true;
+        main.BeginExternalTask(pending[0].MediaPath, Cancel);
         try
         {
             foreach (var item in pending)
             {
                 if (cancellation.IsCancellationRequested) break;
                 SelectedItem = item;
+                main.BeginExternalTask(item.MediaPath, Cancel);
                 item.State = BatchTaskState.Running; item.Stage = "准备任务"; item.Error = null; item.UpdatedUtc = DateTime.UtcNow;
                 await SaveAsync(); UpdateSummary();
                 var progress = new Progress<PipelineProgress>(value =>
-                { item.Stage = StageName(value.Stage); item.Progress = Overall(value.Stage, value.Percent); });
+                {
+                    item.Stage = StageName(value.Stage); item.Progress = Overall(value.Stage, value.Percent);
+                    main.ReportExternalTask(item.MediaPath, value);
+                });
                 try
                 {
                     var result = await main.RunBatchItemAsync(item.MediaPath, progress, cancellation.Token);
                     item.State = BatchTaskState.Completed; item.Progress = 100; item.Stage = result.Message;
                     item.SubtitlePath = result.SubtitlePath;
+                    main.ReportExternalItemResult(item.MediaPath, true, result.Message);
                 }
                 catch (OperationCanceledException)
-                { item.State = BatchTaskState.Cancelled; item.Stage = "已取消，可重试"; }
+                {
+                    item.State = BatchTaskState.Cancelled; item.Stage = "已取消，可重试";
+                    main.ReportExternalItemResult(item.MediaPath, false, "已取消，可从有效缓存继续");
+                }
                 catch (Exception exception)
-                { item.State = BatchTaskState.Failed; item.Stage = "失败，可重试"; item.Error = exception.Message; }
+                {
+                    item.State = BatchTaskState.Failed; item.Stage = "失败，可重试"; item.Error = exception.Message;
+                    main.ReportExternalItemResult(item.MediaPath, false, exception.Message);
+                }
                 item.UpdatedUtc = DateTime.UtcNow;
                 await SaveAsync(); UpdateSummary();
             }
@@ -142,6 +154,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         finally
         {
             cancellation.Dispose(); cancellation = null; IsRunning = false; UpdateSummary();
+            await main.EndExternalTaskAsync();
         }
     }
 

@@ -32,9 +32,14 @@ public partial class ProjectLibraryPage : UserControl
             MessageBox.Show(Window.GetWindow(this), "原视频已经移动或删除，无法恢复。请把视频放回原路径。", "无法恢复", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        await mainViewModel.SelectVideoAsync(project.SourcePath);
+        if (mainViewModel.IsRunning)
+        {
+            MessageBox.Show(Window.GetWindow(this), "已有任务正在处理，请等待完成或先取消当前任务。", "任务处理中", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        await mainViewModel.ResumeProjectAsync(project);
         showWorkbench();
-        MessageBox.Show(Window.GetWindow(this), "已加载原视频。开始生成后会复用有效缓存；若翻译缓存已清理，可能再次产生 DeepSeek API 费用。", "任务已准备恢复", MessageBoxButton.OK, MessageBoxImage.Information);
+        await mainViewModel.StartPreparedTaskAsync();
     }
 
     private void OpenSubtitle_OnClick(object sender, RoutedEventArgs e)
