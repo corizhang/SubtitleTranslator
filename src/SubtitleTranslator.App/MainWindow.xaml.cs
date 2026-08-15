@@ -5,7 +5,7 @@ using System.Windows.Controls;
 
 namespace SubtitleTranslator.App;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly MainWindowViewModel viewModel;
     private bool startupHandled;
