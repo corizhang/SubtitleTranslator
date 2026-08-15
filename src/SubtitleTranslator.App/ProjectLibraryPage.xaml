@@ -30,12 +30,15 @@
                         <StackPanel><TextBlock Text="{Binding SelectedProject.Status}" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold"/><ProgressBar Value="{Binding SelectedProject.ProgressPercent, Mode=OneWay}" Maximum="100" Height="7" Margin="0,8,16,0"/></StackPanel>
                         <TextBlock Grid.Column="1" Text="{Binding SelectedProject.SizeDisplay}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding SelectedProject.Stages}"><ItemsControl.ItemTemplate><DataTemplate>
-                        <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions>
-                            <StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,3,8,0"/></StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding State}" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right"/>
-                        </Grid>
-                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+                    <TabControl Grid.Row="2" BorderBrush="{StaticResource BorderBrush}">
+                        <TabItem Header="概览"><StackPanel Margin="12"><TextBlock Text="原视频" Style="{StaticResource FieldLabelStyle}"/><TextBlock Text="{Binding SelectedProject.SourceStateDisplay}" Foreground="{StaticResource PrimaryBrush}"/><TextBlock Text="项目占用" Style="{StaticResource FieldLabelStyle}" Margin="0,16,0,5"/><TextBlock Text="{Binding SelectedProject.SizeDisplay}"/><TextBlock Text="最近更新" Style="{StaticResource FieldLabelStyle}" Margin="0,16,0,5"/><TextBlock Text="{Binding SelectedProject.UpdatedDisplay}"/></StackPanel></TabItem>
+                        <TabItem Header="处理记录"><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding SelectedProject.Stages}" Margin="12"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,3,8,0"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding State}" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer></TabItem>
+                        <TabItem Header="交付文件"><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding SelectedProject.Artifacts}" Margin="12"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="55"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding FullPath}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" TextTrimming="CharacterEllipsis"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="{Binding Kind}" HorizontalAlignment="Right"/><TextBlock Text="{Binding SizeDisplay}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Right"/></StackPanel><Button Grid.Column="2" Content="打开" Tag="{Binding FullPath}" Click="OpenArtifact_OnClick" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" Margin="8,0,0,0"/></Grid>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer></TabItem>
+                    </TabControl>
                     <WrapPanel Grid.Row="3" Margin="0,16,0,0">
                         <Button Content="继续任务" Click="Resume_OnClick" Style="{StaticResource PrimaryButtonStyle}"/>
                         <Button Content="校订字幕" Click="OpenSubtitle_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0"/>

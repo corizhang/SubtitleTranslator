@@ -8,6 +8,7 @@ using SubtitleTranslator.Infrastructure;
 namespace SubtitleTranslator.App;
 
 public sealed record ProjectStageItem(string Name, string State, DateTime UpdatedUtc, string Error);
+public sealed record ProjectArtifactItem(string Name, string FullPath, string Kind, string SizeDisplay);
 
 public sealed record ProjectHistoryItem(
     string ProjectDirectory,
@@ -17,7 +18,8 @@ public sealed record ProjectHistoryItem(
     int ProgressPercent,
     DateTime UpdatedUtc,
     long SizeBytes,
-    IReadOnlyList<ProjectStageItem> Stages)
+    IReadOnlyList<ProjectStageItem> Stages,
+    IReadOnlyList<ProjectArtifactItem> Artifacts)
 {
     public string UpdatedDisplay => UpdatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
     public string SizeDisplay => SizeBytes switch
@@ -27,6 +29,7 @@ public sealed record ProjectHistoryItem(
         _ => $"{SizeBytes / 1024d:0} KB"
     };
     public bool SourceExists => File.Exists(SourcePath);
+    public string SourceStateDisplay => SourceExists ? "原视频可用" : "原视频已移动或删除";
 }
 
 public sealed class ProjectHistoryService
@@ -51,7 +54,7 @@ public sealed class ProjectHistoryService
                 var status = OverallStatus(manifest);
                 result.Add(new ProjectHistoryItem(directory, manifest.Name, manifest.Source.FullPath,
                     status, status == "已完成" ? 100 : Math.Min(99, completed * 100 / 7), manifest.UpdatedUtc,
-                    DirectorySize(directory), stages));
+                    DirectorySize(directory), stages, LoadArtifacts(directory)));
             }
             catch (Exception exception) { AppFileLogger.Error($"读取项目历史失败：{directory}", exception); }
         }
@@ -90,6 +93,27 @@ public sealed class ProjectHistoryService
     {
         try { return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).Sum(x => new FileInfo(x).Length); }
         catch { return 0; }
+    }
+
+    private static IReadOnlyList<ProjectArtifactItem> LoadArtifacts(string directory)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}cache{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                .Where(path => Path.GetExtension(path).Equals(".srt", StringComparison.OrdinalIgnoreCase) ||
+                               Path.GetExtension(path).Equals(".ass", StringComparison.OrdinalIgnoreCase) ||
+                               Path.GetFileName(path).Contains("qc", StringComparison.OrdinalIgnoreCase) ||
+                               Path.GetFileName(path).Contains("report", StringComparison.OrdinalIgnoreCase))
+                .Select(path =>
+                {
+                    var info = new FileInfo(path);
+                    var kind = path.EndsWith(".srt", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".ass", StringComparison.OrdinalIgnoreCase) ? "字幕" : "报告";
+                    var size = info.Length >= 1024 * 1024 ? $"{info.Length / 1024d / 1024:0.0} MB" : $"{info.Length / 1024d:0} KB";
+                    return new ProjectArtifactItem(info.Name, path, kind, size);
+                }).OrderByDescending(x => x.Kind == "字幕").ThenBy(x => x.Name).ToArray();
+        }
+        catch { return []; }
     }
 
     private static string OverallStatus(SubtitleProjectManifest project)

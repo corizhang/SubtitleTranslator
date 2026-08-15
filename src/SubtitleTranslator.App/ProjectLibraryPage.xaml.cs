@@ -70,6 +70,12 @@ public partial class ProjectLibraryPage : UserControl
         if (project is not null && Directory.Exists(project.ProjectDirectory)) Process.Start(new ProcessStartInfo(project.ProjectDirectory) { UseShellExecute = true });
     }
 
+    private void OpenArtifact_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string path } && File.Exists(path))
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+    }
+
     private async void DeleteCache_OnClick(object sender, RoutedEventArgs e)
     {
         var project = RequireSelection();

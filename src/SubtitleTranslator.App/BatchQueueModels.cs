@@ -26,6 +26,18 @@ public sealed class BatchQueueItemViewModel : INotifyPropertyChanged
     public Guid Id { get; }
     public string MediaPath { get; }
     public string Name => Path.GetFileNameWithoutExtension(MediaPath);
+    public bool SourceExists => File.Exists(MediaPath);
+    public bool CanProcess => SourceExists && BatchQueueViewModel.Extensions.Contains(Path.GetExtension(MediaPath));
+    public string PreflightDisplay => !SourceExists ? "文件缺失" : CanProcess ? "可以处理" : "格式不支持";
+    public string FileSizeDisplay
+    {
+        get
+        {
+            if (!SourceExists) return "—";
+            var bytes = new FileInfo(MediaPath).Length;
+            return bytes >= 1024L * 1024 * 1024 ? $"{bytes / 1024d / 1024 / 1024:0.0} GB" : $"{bytes / 1024d / 1024:0} MB";
+        }
+    }
     public BatchTaskState State { get => state; set { Set(ref state, value); Notify(nameof(StateDisplay)); } }
     public string StateDisplay => State switch
     { BatchTaskState.Pending => "等待", BatchTaskState.Running => "处理中", BatchTaskState.Completed => "完成", BatchTaskState.Failed => "失败", _ => "已取消" };
@@ -45,7 +57,7 @@ public sealed class BatchQueueItemViewModel : INotifyPropertyChanged
 
 public sealed class BatchQueueViewModel : INotifyPropertyChanged
 {
-    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     { ".mkv", ".mp4", ".avi", ".mov", ".wmv", ".webm", ".m4v" };
     private readonly MainWindowViewModel main;
     private readonly JsonBatchQueueStore store;
@@ -108,8 +120,8 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         if (retryFailed)
             foreach (var item in Items.Where(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled))
             { item.State = BatchTaskState.Pending; item.Progress = 0; item.Stage = "等待从缓存断点继续"; item.Error = null; }
-        var pending = Items.Where(x => x.State == BatchTaskState.Pending).ToArray();
-        if (pending.Length == 0) { Message = "没有等待处理的任务。"; return; }
+        var pending = Items.Where(x => x.State == BatchTaskState.Pending && x.CanProcess).ToArray();
+        if (pending.Length == 0) { Message = "没有通过预检且等待处理的任务。请移除或修正标记为文件缺失的项目。"; return; }
         try { await main.PrepareBatchAsync(); }
         catch (Exception exception) { Message = exception.Message; return; }
 
@@ -168,7 +180,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
     private Task SaveAsync() => store.SaveAsync(new BatchQueueSnapshot(1, Items.Select(x => x.ToEntry()).ToArray()), CancellationToken.None);
     private void UpdateSummary()
     {
-        Message = $"共 {Items.Count} 项：等待 {Items.Count(x => x.State == BatchTaskState.Pending)}，处理中 {Items.Count(x => x.State == BatchTaskState.Running)}，完成 {Items.Count(x => x.State == BatchTaskState.Completed)}，失败/取消 {Items.Count(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled)}。";
+        Message = $"共 {Items.Count} 项：可处理 {Items.Count(x => x.CanProcess)}，需修正 {Items.Count(x => !x.CanProcess)}，处理中 {Items.Count(x => x.State == BatchTaskState.Running)}，完成 {Items.Count(x => x.State == BatchTaskState.Completed)}，失败/取消 {Items.Count(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled)}。";
     }
     private static string StageName(string stage) => stage switch
     { "probe" => "读取媒体", "audio" => "提取音频", "transcription" or "transcribe" => "语音识别", "translation" => "翻译", "translation-qa" => "翻译 QA", "final-qc" => "最终质检", "export" => "导出字幕", _ => "处理中" };
