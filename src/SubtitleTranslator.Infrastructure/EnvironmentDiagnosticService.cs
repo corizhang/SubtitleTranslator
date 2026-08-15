@@ -14,7 +14,7 @@ public sealed class EnvironmentDiagnosticService : IEnvironmentDiagnosticService
             FileComponent("ffmpeg", "FFmpeg", ffmpeg, "请选择 FFmpeg，或在组件管理中下载。"),
             FileComponent("ffprobe", "FFprobe", ffprobe, "请选择 FFprobe，通常与 FFmpeg 位于同一目录。"),
             FileComponent("whisper-model", "Whisper 模型", settings.WhisperModelPath, "请选择本地模型或下载推荐模型。"),
-            FileComponent("vad", "Silero VAD", settings.VadModelPath, "请选择或下载 Silero VAD 模型。"),
+            VadComponent(settings.VadModelPath),
             RuntimeComponent(settings.WhisperRuntimePath)
         };
         return Task.FromResult(new EnvironmentDiagnosticReport(items));
@@ -32,6 +32,17 @@ public sealed class EnvironmentDiagnosticService : IEnvironmentDiagnosticService
             ? new ComponentDiagnostic("whisper-runtime", "Whisper 运行组件", ComponentState.Ready, "已就绪", Path.GetFullPath(directory!))
             : new ComponentDiagnostic("whisper-runtime", "Whisper 运行组件", ComponentState.Missing,
                 "请选择已解压的 CPU 或 CUDA runtime 目录。");
+    }
+
+    private static ComponentDiagnostic VadComponent(string? path)
+    {
+        if (path is null || !File.Exists(path))
+            return new ComponentDiagnostic("vad", "Silero VAD", ComponentState.Missing, "请选择或下载 Silero VAD 模型。");
+        var file = new FileInfo(path);
+        if (!file.Name.Contains("silero", StringComparison.OrdinalIgnoreCase) || file.Length > 50L * 1024 * 1024)
+            return new ComponentDiagnostic("vad", "Silero VAD", ComponentState.Invalid,
+                "所选文件不像 Silero VAD（请勿选择 Whisper 语音模型）。", file.FullName);
+        return new ComponentDiagnostic("vad", "Silero VAD", ComponentState.Ready, "已就绪", file.FullName);
     }
 
     private static string? ResolveExecutable(string? configured, string fileName)

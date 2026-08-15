@@ -65,11 +65,11 @@ public sealed class UserSettingsAndModelDownloadTests
         try
         {
             Directory.CreateDirectory(directory);
-            foreach (var file in new[] { "ffmpeg.exe", "ffprobe.exe", "model.bin", "vad.bin", "whisper.dll" })
+            foreach (var file in new[] { "ffmpeg.exe", "ffprobe.exe", "model.bin", "ggml-silero-vad.bin", "whisper.dll" })
                 await File.WriteAllTextAsync(Path.Combine(directory, file), "test");
             var settings = new UserSettings(
                 WhisperModelPath: Path.Combine(directory, "model.bin"),
-                VadModelPath: Path.Combine(directory, "vad.bin"),
+                VadModelPath: Path.Combine(directory, "ggml-silero-vad.bin"),
                 FfmpegPath: Path.Combine(directory, "ffmpeg.exe"),
                 FfprobePath: Path.Combine(directory, "ffprobe.exe"),
                 WhisperRuntimePath: directory);
@@ -78,6 +78,23 @@ public sealed class UserSettingsAndModelDownloadTests
             Assert.All(report.Components, item => Assert.Equal(ComponentState.Ready, item.State));
             File.Delete(Path.Combine(directory, "whisper.dll"));
             report = await new EnvironmentDiagnosticService().DiagnoseAsync(settings, CancellationToken.None);
+            Assert.False(report.CanGenerateSubtitles);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task Environment_diagnostics_reject_whisper_model_as_vad()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"subtitle-invalid-vad-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var wrongModel = Path.Combine(directory, "ggml-medium-q5_0.bin");
+            await File.WriteAllBytesAsync(wrongModel, new byte[1024]);
+            var report = await new EnvironmentDiagnosticService().DiagnoseAsync(
+                new UserSettings(VadModelPath: wrongModel), CancellationToken.None);
+            Assert.Equal(ComponentState.Invalid, report.Components.Single(x => x.Id == "vad").State);
             Assert.False(report.CanGenerateSubtitles);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

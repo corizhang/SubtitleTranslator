@@ -143,8 +143,10 @@
         </ScrollViewer>
 
         <Grid Grid.Row="3" Margin="0,22,0,0">
-            <TextBlock Text="{Binding ValidationMessage}" Foreground="#C53929" VerticalAlignment="Center" />
-            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding ValidationMessage}" Foreground="#C53929" VerticalAlignment="Center"
+                       TextWrapping="Wrap" MaxHeight="48" Margin="0,0,18,0" />
+            <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
             <Button Content="取消" MinWidth="90" Command="{Binding CancelCommand}"
                     Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <Button Content="开始生成字幕" MinWidth="150"

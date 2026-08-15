@@ -339,6 +339,17 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 损坏或无法读取的项目清单不会阻止项目中心加载，错误写入应用日志。
 - 应用及 MSI 版本提升为 `0.2.0`。
 
+## 2026-08-15 0.2.1 Runtime 与项目详情修复
+
+- 定位 Whisper 处理失败根因：组件安装器输出平铺 DLL，而 Whisper.net 1.9.1 只探测 `runtimes/cuda/win-x64` 或 `runtimes/win-x64` 标准布局。
+- runtime bootstrap 会为现有平铺组件建立兼容目录，Windows 下优先创建硬链接，因此不会重复占用约 150 MB CUDA DLL 空间；同时固定 CPU/CUDA 加载顺序。
+- 使用当前 GTX 1660 SUPER、CUDA runtime 和 Large v3 Turbo Q5 模型执行一秒真实推理探针，CUDA 加载与推理成功，耗时约 9.6 秒。
+- 修复 VAD 误配置：此前任意存在的 `.bin` 都会被视为 VAD，现会拒绝 Whisper 模型文件并提示选择 `ggml-silero-*.bin`。
+- 当前机器原 VAD 设置实际指向约 514 MB 的 `ggml-medium-q5_0.bin`；修复后会在开始任务前标记为无效，避免进入错误流水线。
+- 项目阶段详情关闭横向滚动，使用固定状态列、可换行限高错误摘要和纵向滚动，修复阶段名称、状态和错误文本叠加。
+- 主窗口底部错误区与操作按钮改为独立列，长错误信息不再覆盖“开始生成字幕”按钮。
+- 新增错误 VAD 回归测试，自动化测试更新为 37/37。
+
 ## 2026-08-15 可恢复阶段状态机
 
 - 新增 `ProjectRunTracker`，每个阶段开始前原子写入 `Running`，完成后写入 `Completed` 和产物列表。

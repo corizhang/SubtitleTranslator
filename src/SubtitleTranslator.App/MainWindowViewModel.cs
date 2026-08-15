@@ -260,6 +260,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task SelectVadAsync(string path)
     {
+        var file = new FileInfo(path);
+        if (!file.Exists || !file.Name.Contains("silero", StringComparison.OrdinalIgnoreCase) || file.Length > 50L * 1024 * 1024)
+        {
+            EnvironmentStatus = "所选文件不是有效的 Silero VAD；请使用 ggml-silero-*.bin，而不是 Whisper 语音模型。";
+            return;
+        }
         settings = settings with { VadModelPath = Path.GetFullPath(path) };
         await settingsStore.SaveAsync(settings, CancellationToken.None);
         await RefreshEnvironmentAsync();
@@ -520,7 +526,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             FfprobePath = environmentReport.Components.First(x => x.Id == "ffprobe").ResolvedPath
         };
         EnvironmentStatus = string.Join("  ·  ", environmentReport.Components.Select(x =>
-            $"{(x.State == ComponentState.Ready ? "✓" : "缺少")} {x.DisplayName}"));
+            x.State == ComponentState.Ready ? $"✓ {x.DisplayName}" : $"需处理 {x.DisplayName}：{x.Message}"));
         var gpu = hardware.HasNvidiaGpu
             ? $"GPU：{hardware.GpuName}，驱动 {hardware.DriverVersion}，计算能力 {hardware.ComputeCapability}"
             : "未检测到 NVIDIA GPU";
