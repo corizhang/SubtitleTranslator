@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SubtitleTranslator.Domain;
 using SubtitleTranslator.Infrastructure;
 
@@ -138,9 +139,29 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
     private readonly ProjectHistoryService service = new();
     private ProjectHistoryItem? selectedProject;
     private string message = "正在读取项目历史……";
+    private string searchText = string.Empty;
+    private string statusFilter = "全部状态";
+    public ProjectHistoryViewModel()
+    {
+        ProjectsView = CollectionViewSource.GetDefaultView(Projects);
+        ProjectsView.Filter = MatchesFilter;
+    }
     public ObservableCollection<ProjectHistoryItem> Projects { get; } = [];
+    public ICollectionView ProjectsView { get; }
+    public IReadOnlyList<string> StatusFilters { get; } = ["全部状态", "可继续或恢复", "已完成", "源文件缺失"];
     public ProjectHistoryItem? SelectedProject { get => selectedProject; set { selectedProject = value; Notify(); Notify(nameof(HasSelection)); } }
     public bool HasSelection => SelectedProject is not null;
+    public bool HasProjects => Projects.Count > 0;
+    public int FilteredCount => ProjectsView.Cast<object>().Count();
+    public bool HasVisibleProjects => FilteredCount > 0;
+    public string EmptyStateTitle => HasProjects ? "没有匹配的项目" : "还没有字幕项目";
+    public string EmptyStateDescription => HasProjects ? "尝试清空搜索内容或选择其他状态。" : "从工作台选择视频并开始处理后，项目会自动保存在这里。";
+    public int TotalCount => Projects.Count;
+    public int CompletedCount => Projects.Count(x => x.Status == "已完成");
+    public int RecoverableCount => Projects.Count(x => x.Status != "已完成");
+    public int MissingSourceCount => Projects.Count(x => !x.SourceExists);
+    public string SearchText { get => searchText; set { if (searchText == value) return; searchText = value; Notify(); RefreshFilter(); } }
+    public string StatusFilter { get => statusFilter; set { if (statusFilter == value) return; statusFilter = value; Notify(); RefreshFilter(); } }
     public string Message { get => message; private set { message = value; Notify(); } }
     public ProjectHistoryService Service => service;
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -150,11 +171,42 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
         var selectedPath = SelectedProject?.ProjectDirectory;
         Projects.Clear();
         foreach (var item in await service.LoadAsync(CancellationToken.None)) Projects.Add(item);
-        SelectedProject = Projects.FirstOrDefault(x => x.ProjectDirectory == selectedPath) ?? Projects.FirstOrDefault();
-        Message = Projects.Count == 0 ? "还没有项目。完成或中断一次字幕任务后会显示在这里。" : $"共 {Projects.Count} 个项目。";
+        Notify(nameof(HasProjects)); Notify(nameof(TotalCount)); Notify(nameof(CompletedCount));
+        Notify(nameof(RecoverableCount)); Notify(nameof(MissingSourceCount));
+        ProjectsView.Refresh();
+        SelectedProject = ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault(x => x.ProjectDirectory == selectedPath)
+            ?? ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault();
+        RefreshFilter();
     }
 
     public void SetMessage(string value) => Message = value;
+
+    private bool MatchesFilter(object value)
+    {
+        if (value is not ProjectHistoryItem project) return false;
+        var matchesText = string.IsNullOrWhiteSpace(SearchText) ||
+            project.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+            project.SourcePath.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+        var matchesStatus = StatusFilter switch
+        {
+            "可继续或恢复" => project.Status != "已完成",
+            "已完成" => project.Status == "已完成",
+            "源文件缺失" => !project.SourceExists,
+            _ => true
+        };
+        return matchesText && matchesStatus;
+    }
+
+    private void RefreshFilter()
+    {
+        ProjectsView.Refresh();
+        var visible = FilteredCount;
+        Message = Projects.Count == 0 ? "还没有项目。完成或中断一次字幕任务后会显示在这里。" : $"显示 {visible} 个，共 {Projects.Count} 个项目。";
+        Notify(nameof(FilteredCount)); Notify(nameof(HasVisibleProjects));
+        Notify(nameof(EmptyStateTitle)); Notify(nameof(EmptyStateDescription));
+        if (SelectedProject is not null && !ProjectsView.Cast<ProjectHistoryItem>().Contains(SelectedProject))
+            SelectedProject = ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault();
+    }
 
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
