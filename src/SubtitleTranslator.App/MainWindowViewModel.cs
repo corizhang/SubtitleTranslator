@@ -77,6 +77,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string selectedConflictPolicy = "覆盖前备份（推荐）";
     private string customOutputDirectory = string.Empty;
     private string namingTemplate = "{video-name}.{language}.{layout}.srt";
+    private string projectStorageSummary = "正在统计项目空间……";
+    private double projectDriveUsagePercent;
 
     public MainWindowViewModel()
     {
@@ -150,8 +152,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand OpenFfmpegDownloadCommand { get; }
     public ICommand RunSelfTestCommand { get; }
 
-    public string? SelectedFilePath { get => selectedFilePath; private set { selectedFilePath = value; Notify(); Notify(nameof(SelectedFileDisplay)); } }
+    public string? SelectedFilePath { get => selectedFilePath; private set { selectedFilePath = value; Notify(); Notify(nameof(SelectedFileDisplay)); Notify(nameof(HasSelectedFile)); Notify(nameof(HasActiveWorkbenchTask)); } }
     public string SelectedFileDisplay => SelectedFilePath ?? "支持 MKV、MP4、AVI、MOV、WMV、WebM";
+    public bool HasSelectedFile => SelectedFilePath is not null;
+    public bool HasActiveWorkbenchTask => HasSelectedFile || IsRunning;
+    public string ProjectStoragePath => projectHistoryService.ProjectsRoot;
+    public string ProjectStorageSummary { get => projectStorageSummary; private set => Set(ref projectStorageSummary, value); }
+    public double ProjectDriveUsagePercent { get => projectDriveUsagePercent; private set => Set(ref projectDriveUsagePercent, value); }
     public string SelectedOutputMode { get => selectedOutputMode; set => Set(ref selectedOutputMode, value); }
     public string SelectedQualityMode { get => selectedQualityMode; set => Set(ref selectedQualityMode, value); }
     public string SelectedSpeechModel { get => selectedSpeechModel; set { Set(ref selectedSpeechModel, value); RefreshCommands(); } }
@@ -159,7 +166,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string SelectedSourceLanguage { get => selectedSourceLanguage; set => Set(ref selectedSourceLanguage, value); }
     public AudioTrackOption? SelectedAudioTrack { get => selectedAudioTrack; set => Set(ref selectedAudioTrack, value); }
     public bool TranslationQaEnabled { get => translationQaEnabled; set => Set(ref translationQaEnabled, value); }
-    public bool IsRunning { get => isRunning; private set { Set(ref isRunning, value); RefreshCommands(); } }
+    public bool IsRunning { get => isRunning; private set { Set(ref isRunning, value); Notify(nameof(HasActiveWorkbenchTask)); RefreshCommands(); } }
     public string ValidationMessage { get => validationMessage; private set => Set(ref validationMessage, value); }
     public string StatusMessage { get => statusMessage; private set => Set(ref statusMessage, value); }
     public double OverallProgress { get => overallProgress; private set => Set(ref overallProgress, value); }
@@ -196,9 +203,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task RefreshRecentProjectsAsync()
     {
+        var projects = await projectHistoryService.LoadAsync(CancellationToken.None);
         RecentProjects.Clear();
-        foreach (var project in (await projectHistoryService.LoadAsync(CancellationToken.None)).Take(5))
+        foreach (var project in projects.Take(5))
             RecentProjects.Add(project);
+        var totalBytes = projects.Sum(x => x.SizeBytes);
+        ProjectStorageSummary = totalBytes >= 1024L * 1024 * 1024
+            ? $"{projects.Count} 个项目 · {totalBytes / 1024d / 1024 / 1024:0.0} GB"
+            : $"{projects.Count} 个项目 · {totalBytes / 1024d / 1024:0} MB";
+        try
+        {
+            var drive = new DriveInfo(Path.GetPathRoot(projectHistoryService.ProjectsRoot)!);
+            ProjectDriveUsagePercent = drive.TotalSize == 0 ? 0 : (drive.TotalSize - drive.AvailableFreeSpace) * 100d / drive.TotalSize;
+            ProjectStorageSummary += $" · 磁盘剩余 {drive.AvailableFreeSpace / 1024d / 1024 / 1024:0} GB";
+        }
+        catch { ProjectDriveUsagePercent = 0; }
         Notify(nameof(HasRecentProjects));
     }
 

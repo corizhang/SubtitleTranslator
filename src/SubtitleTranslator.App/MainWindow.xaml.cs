@@ -2,6 +2,8 @@ using Microsoft.Win32;
 using System.Windows;
 using System.ComponentModel;
 using System.Windows.Controls;
+using System.Diagnostics;
+using System.IO;
 
 namespace SubtitleTranslator.App;
 
@@ -45,6 +47,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI字幕翻译", "logs", "app.log");
         MessageBox.Show(this, $"{viewModel.SetupSummary}\n\n应用日志：\n{logPath}", "诊断中心",
             MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void OpenProjectsFolder_OnClick(object sender, RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(viewModel.ProjectStoragePath);
+        Process.Start(new ProcessStartInfo(viewModel.ProjectStoragePath) { UseShellExecute = true });
     }
 
     private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e)
