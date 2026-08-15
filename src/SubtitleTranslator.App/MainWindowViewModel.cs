@@ -4,6 +4,8 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Input;
 using SubtitleTranslator.Application;
 using SubtitleTranslator.Domain;
@@ -341,6 +343,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanStart() => SelectedFilePath is not null && !IsRunning;
+
+    public async Task PrepareBatchAsync()
+    {
+        await RefreshEnvironmentAsync();
+        if (environmentReport?.CanGenerateSubtitles != true || selectedModelPath is null || settings.VadModelPath is null)
+            throw new InvalidOperationException("运行组件尚未配置完整，请先完成配置向导。");
+        if (string.IsNullOrWhiteSpace(deepSeekApiKey))
+            throw new InvalidOperationException("请先在配置向导中保存 DeepSeek API Key。");
+        await SavePublicationSettingsAsync();
+    }
+
+    public async Task<BatchExecutionResult> RunBatchItemAsync(
+        string mediaPath, IProgress<PipelineProgress>? progress, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(mediaPath)) throw new FileNotFoundException("视频文件不存在。", mediaPath);
+        if (!SupportedExtensions.Contains(Path.GetExtension(mediaPath))) throw new InvalidOperationException("暂不支持此视频格式。");
+        var modelPath = selectedModelPath ?? throw new InvalidOperationException("尚未配置 Whisper 模型。");
+        var vadPath = settings.VadModelPath ?? throw new InvalidOperationException("尚未配置 VAD 模型。");
+        var projectName = MakeSafeName(Path.GetFileNameWithoutExtension(mediaPath)) + "-" +
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(mediaPath).ToUpperInvariant())))[..8].ToLowerInvariant();
+        var projectDirectory = Path.Combine(GetUserDataRoot(), "projects", projectName);
+        var outputDirectory = Path.Combine(projectDirectory, "exports");
+        var qualityMode = SelectedQualityMode.StartsWith("生成", StringComparison.Ordinal)
+            ? SubtitleQualityMode.Suggest
+            : SelectedQualityMode == "关闭" ? SubtitleQualityMode.Off : SubtitleQualityMode.Auto;
+        var request = new SubtitleGenerationRequest(
+            mediaPath, modelPath, vadPath, projectDirectory, outputDirectory,
+            settings.DeepSeekModel, qualityMode, TranslationQaEnabled,
+            SourceLanguageCode(SelectedSourceLanguage), deepSeekApiKey,
+            settings.FfmpegPath, settings.FfprobePath, settings.WhisperRuntimePath);
+        var result = await generationService.GenerateAsync(request, progress, cancellationToken);
+        var preferred = SelectedOutputMode == "仅中文字幕" ? result.ChineseSubtitle : result.BilingualSubtitle;
+        var publication = await publicationService.PublishAndRecordAsync(new SubtitlePublicationRequest(
+            mediaPath, preferred, projectDirectory, BuildPublicationOptions()), cancellationToken);
+        return new BatchExecutionResult(publication.Success ? publication.PublishedPath ?? preferred : preferred, publication.Message);
+    }
 
     private async Task StartAsync()
     {

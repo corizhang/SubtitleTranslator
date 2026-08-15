@@ -26,6 +26,9 @@ public partial class MainWindow : Window
 
     private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
+    private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e) =>
+        new BatchQueueWindow(viewModel) { Owner = this }.ShowDialog();
+
     private async void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
     {
         var window = new ProjectHistoryWindow { Owner = this };
