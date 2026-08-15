@@ -422,6 +422,15 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 修复真实 WPF 渲染发现的只读 `OverallProgress` TwoWay 绑定，明确使用 OneWay。
 - 应用及 MSI 版本提升为 `0.6.0`；后续阶段将把项目库和批量中心从独立窗口迁为同一外壳内的页面。
 
+## 2026-08-15 0.13.0 统一 Fluent 组件基础层
+
+- 保留 WPF UI 的 FluentWindow、主题字典和 SymbolIcon，新增覆盖全应用的产品级组件规范。
+- 主按钮、次按钮与侧栏导航统一圆角、内边距、悬停、按下、键盘焦点和禁用状态，不再依赖各页面零散外观。
+- 统一输入框与下拉框高度、字体和垂直对齐；统一 DataGrid 表头、单元格间距、交替行、网格线和选中状态。
+- 将控件圆角与卡片圆角提升为共享设计令牌，后续页面不再自行定义同类数值。
+- WPF UI 继续负责窗口、主题和图标能力；业务控件通过统一设计层约束原生 WPF 与 WPF UI 的混合使用。
+- 应用及 MSI 版本提升为 `0.13.0`。
+
 ## 2026-08-15 0.12.1 批量队列进度绑定热修复
 
 - 修复批量任务页启动异常：只读 `QueueProgress` 被 `ProgressBar.Value` 尝试以 TwoWay 模式回写。
