@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Domain\SubtitleTranslator.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Application\SubtitleTranslator.Application.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Media\SubtitleTranslator.Media.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Speech\SubtitleTranslator.Speech.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Subtitles\SubtitleTranslator.Subtitles.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Translation\SubtitleTranslator.Translation.csproj" />
+    <ProjectReference Include="..\..\src\SubtitleTranslator.Infrastructure\SubtitleTranslator.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

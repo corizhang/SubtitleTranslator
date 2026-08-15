@@ -1,0 +1,330 @@
+# 实施状态
+
+> 更新日期：2026-08-13
+
+## 当前迭代
+
+里程碑 0：硬件与模型技术验证。
+
+## 已完成
+
+- 创建 .NET 10 解决方案和分层项目骨架。
+- 创建 WPF、Domain、Application、Infrastructure、Media、Speech、Translation、Subtitles 项目。
+- 创建 benchmark CLI 和三类测试项目。
+- 定义媒体、转录、流水线进度模型及核心接口。
+- 实现 FFprobe 媒体探测和多音轨读取。
+- 实现 FFmpeg 16 kHz 单声道 WAV 提取、进度报告和取消处理。
+- 集成 Whisper.net 1.9.1 API，支持语言自动检测、线程数和分段输出。
+- 实现转录 JSON 和 UTF-8 BOM SRT 输出。
+- 实现 benchmark 参数、音轨选择、实时倍率统计和 Ctrl+C 取消。
+- 解决方案构建成功：0 警告、0 错误。
+- 首批 3 个测试全部通过。
+- 使用含中文和空格路径的临时视频验证媒体探测与音频提取成功。
+- 已确认真实测试视频：43 分 2 秒、英文 E-AC-3 5.1 音轨（stream 1），并含英文 SRT 参考字幕。
+- CUDA Toolkit 13.2.78、三个模型文件和 SHA-1 已验证。
+- Whisper.net CUDA 13 runtime 已恢复并在 Windows 10 上完成真实 GPU 转录。
+- 增加 CUDA Toolkit `bin`/`bin\\x64` 自动发现，解决 CUDA 13.2 动态库加载问题。
+- 三模型 30 秒统一基准已完成，结果见 ADR-0001。
+- small 与 turbo 的 5 分钟长样片测试已完成；turbo 相对质量更好，small 更快。
+- turbo 整集 GPU 基准完成：43:01 音频用时 6:46，6.35x realtime。
+- 发现整集单次识别的上下文反馈循环；`NoContext` 有限改善但无法根治。
+- 对严重问题区间进行独立 5 分钟块复测，确认分块能把最长重复从 226 条限制到 15 条。
+- benchmark 增加 `--no-context` 参数。
+- 实现 FFmpeg 音频分块、边界重叠、块间 processor 重置、绝对时间恢复及中点归属去重。
+- benchmark 增加 `--chunk-minutes`、`--chunk-overlap` 和结构化 `diagnostics.json`。
+- 修正异步 `Progress<T>` 导致的控制台乱序，改为同步进度报告。
+- 实现连续规范化文本重复检测。
+- 整集 5 分钟分块测试完成：6:03.6、7.10x realtime，重复段由 847 降至 406。
+- 分块结果时间戳单调、无越界、块边界无中点冲突；识别入口过滤空文本和非正时长片段。
+- 定义 VAD 语音区间模型与 `IVoiceActivityDetector`，实现 Whisper.net Silero VAD 适配器。
+- benchmark 增加 `--vad-model`、`--vad-threshold`，可输出 `vad.json`。
+- 实现异常重复区间重试规划器，默认生成最长 2 分钟、前后 10 秒边距的 `retry-plan.json`。
+- 当前构建 0 警告，测试 6/6 通过。
+
+## 当前限制
+
+- 自动重试目前只生成 `retry-plan.json`，尚未执行局部重识别和结果替换。
+- 识别质量指标目前使用内嵌英文字幕作代理参考，后续仍需建立人工校订的固定金标准样本。
+- 当前 WPF 项目只是模板骨架，尚未进入桌面 MVP 开发。
+
+## 下一步
+
+1. 执行 `retry-plan.json` 中的异常块自动重试和结果替换。
+2. 为异常替换、时间轴单调性和窗口边界建立回归测试。
+3. 把 VAD 转录编排接入应用层端到端任务。
+4. 接入首个可配置翻译 Provider，输出中文与双语 SRT。
+5. 开始 WPF 拖放、任务进度与导出界面。
+
+## 验证命令
+
+```powershell
+dotnet build SubtitleTranslator.slnx --no-restore
+dotnet test SubtitleTranslator.slnx --no-build --no-restore
+dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
+```
+
+## 2026-08-15 VAD 整集验证基线
+
+- Silero VAD 模型：`ggml-silero-v6.2.0.bin`，SHA-256 为 `2AA269B785EEB53A82983A20501DDF7C1D9C48E33AB63A41391AC6C9F7FB6987`。
+- 测试视频：43 分 01.6 秒，英语 E-AC-3 5.1 音轨。
+- VAD 检出 449 个语音区间，共 1379.8 秒（占整集约 53.4%），合并为 72 个 Whisper 输入窗口。
+- `large-v3-turbo-q5_0` CUDA 转录耗时 4 分 55.9 秒，达到 8.72 倍实时速度，输出 748 条字幕。
+- 固定 5 分钟分块旧基线有 406 个重复异常段；VAD 窗口方案仅剩 3 个，下降约 99.3%。
+- 唯一异常位于 `00:28:37.710`—`00:29:02.210`，已生成一个局部重试窗口。
+- 整集运行无 CUDA、显存溢出或时间轴中断错误，证明 GTX 1660 SUPER 6 GB 足以运行当前默认方案。
+
+当前结论：VAD 窗口转录成为默认识别路径；固定时间分块保留为无 VAD 模型时的降级方案。下一步执行异常窗口自动重识别与结果替换，然后进入端到端翻译流水线。
+
+## 2026-08-15 异常窗口自动重试
+
+- 新增 `RetryingTranscriptionEngine`，在主识别完成后自动分析重复异常并只提取局部音频重识别。
+- 新增 `TranscriptionResultRepairer`，负责恢复局部结果的绝对时间、替换窗口内容、重新排序和连续编号。
+- 重试强制使用独立上下文；候选结果只有在窗口内异常段数量下降时才会被接受，否则保留原结果。
+- 修正重叠重试窗口的合并规则，同时保持单个窗口不超过配置的最大时长。
+- benchmark 在启用 VAD 时默认执行诊断重试；可通过 `--no-retry` 关闭。
+- 整集实测自动重试了 `00:28:37.710`—`00:29:02.210`：独立识别仍得到三个连续 `No.`，质量门控因此拒绝替换，没有误删可能存在的真实短台词。
+- 重试后整集总耗时 5 分 01 秒，8.57 倍实时；748 条字幕中非法时长为 0、时间倒退为 0。
+- 当前解决方案构建 0 警告、0 错误，自动测试 9/9 通过。
+
+当前结论：局部自动重试与安全替换链路已经完成。重复诊断属于启发式质量信号，不能单独作为删除字幕的依据。下一阶段进入翻译 Provider、批处理校验以及中文/双语字幕输出。
+
+## 2026-08-15 翻译协议与双语 SRT
+
+- 新增 `TranslationBatch`、`TranslationRequestSegment`、`TranslationSegment`、`TranslationContext` 和 `TranslationOptions` 领域模型。
+- 新增可替换的 `ITranslationProvider` 接口，翻译实现不依赖 WPF、Whisper 或具体云服务 SDK。
+- 新增 `TranslationOrchestrator`，按最大段数和字符数批处理，并保留稳定的整数 `SegmentId`。
+- 新增严格响应校验：拒绝请求重复 ID、响应重复 ID、未知 ID、漏段和空译文；响应乱序会按请求顺序安全恢复。
+- 新增 `TranslatedSrtExporter`，支持纯中文、原文在上中文在下、中文在上原文在下三种布局。
+- 新增 `PrefixTestTranslationProvider`，只用于离线链路测试，所有输出均带 `【测试译文】` 标记，避免被误认为真实翻译。
+- benchmark 增加 `--test-translation`，可验证“识别→翻译批处理→响应校验→中文/双语 SRT”的完整链路。
+- 30 秒真实视频端到端测试输出 11 段，生成 `chinese.test.srt` 和 `bilingual.test.srt`，中文编码、编号和时间轴均正确。
+- 当前解决方案构建 0 警告、0 错误，自动测试 13/13 通过。
+
+当前结论：与供应商无关的翻译核心和双语 SRT 导出已经可用。下一步实现正式的可配置翻译 Provider、结构化 JSON 响应解析、限流重试和阶段缓存；测试 Provider 不用于最终字幕质量评估。
+
+## 2026-08-15 DeepSeek Provider 与缓存
+
+- 按 DeepSeek 当前官方 OpenAI 格式接口实现 `DeepSeekTranslationProvider`：`https://api.deepseek.com/chat/completions`。
+- 默认使用 `deepseek-v4-flash`，显式关闭思考模式并启用 `response_format: json_object`。
+- API Key 只从进程环境变量 `DEEPSEEK_API_KEY` 读取，不提供命令行密钥参数，不写入缓存或日志。
+- 严格解析 completion envelope、`finish_reason`、message content 和 `translations` 数组；随后继续执行 SegmentId 完整性校验。
+- 对 408、429、500、502、503、504、网络异常和非用户取消超时执行指数退避重试；支持 `Retry-After`。
+- 400、401、402、422 等非瞬时错误直接失败，避免无效重试和重复费用。
+- 新增 `CachingTranslationProvider`：以 Provider 版本、模型、语言、原文、标题、风格和术语表计算 SHA-256 键，按批次原子写入 JSON 缓存。
+- 缓存命中时重新执行完整性校验；损坏或不完整缓存视为 miss，不进入字幕输出。
+- benchmark 新增 `--deepseek-translation`、`--deepseek-model`、`--translation-cache`；缺少环境变量时在媒体处理前快速失败。
+- 新增 DeepSeek 请求格式、Bearer 鉴权、结构化响应、503 重试、401 不重试和磁盘缓存复用测试。
+- 当前构建 0 警告、0 错误，自动测试 17/17 通过；真实公网调用等待本机设置 API Key 后验证。
+
+## 2026-08-15 DeepSeek 真实调用验证
+
+- `.env` 本地开发密钥回退已实现并加入 Git 忽略；提供不含密钥的 `.env.example`。
+- 30 秒真实视频通过 `deepseek-v4-flash` 完成 11/11 段翻译，鉴权、JSON Output 和 SegmentId 校验全部成功。
+- 成功生成正式 `chinese.srt` 与 `bilingual.srt`；人名“亨特、哈特利、科尔森”和动作台词翻译总体自然。
+- 同一任务在默认禁网沙箱中第二次完整成功，证明翻译批次从磁盘缓存恢复，没有再次调用 API。
+- 发现 `They're gone.` 在伤亡语境下被译为“他们不见了”，已将提示词升级为连续场景理解，强调代词、委婉表达和隐含语义，缓存版本升级为 `deepseek-json-v2-context`。
+- 优化后 A/B 公网复测因会产生第二次外部发送和潜在费用，等待用户明确授权。
+- 当前构建 0 警告、0 错误，自动测试 18/18 通过。
+
+## 2026-08-15 DeepSeek 提示词 A/B
+
+- 用户明确授权后完成第二次 30 秒公网翻译，v2 仍通过 11/11 SegmentId 和 JSON 完整性校验。
+- v2 改善：“Hands on your head!” 从“手放头上”变为更自然的“双手抱头”；“Two agents down”从“倒下”变为语境正确的“殉职”；部分对白更简洁。
+- v2 未改善：独立短句 `They're gone.` 仍为“他们不见了”，虽然随后伤亡报告已正确译为“殉职”。
+- 结论：连续场景提示词保留为默认 v2，但提示词不能稳定解决所有短句歧义。后续加入翻译 QA/歧义复核阶段，对代词、省略、委婉表达和上下文冲突句做选择性二次校订。
+- v2 使用独立缓存版本 `deepseek-json-v2-context`，不会误用 v1 缓存。
+
+## 2026-08-15 选择性翻译 QA
+
+- 新增 `TranslationQualityAnalyzer`，本地识别短上下文表达、代词/省略和与附近伤亡语义冲突的委婉表达。
+- QA 候选携带目标句、当前译文、触发原因，以及前后各两句的原文与译文；普通字幕不会进入二次请求。
+- 新增 `ITranslationReviewProvider`、`DeepSeekTranslationReviewProvider` 和 `TranslationReviewOrchestrator`。
+- DeepSeek QA 复用现有鉴权、JSON Output、退避重试、SegmentId 校验和内容寻址缓存，不维护第二套 HTTP 实现。
+- 复核响应拒绝重复、未知、漏失和空文本；只应用 Provider 返回且文本确实改变的候选，其余译文保持不动。
+- benchmark 新增 `--translation-qa`，必须与 `--deepseek-translation` 同时使用。
+- 本地规则与替换编排测试通过；当前构建 0 警告、0 错误，自动测试 20/20 通过。
+- 真实 QA 调用会产生新的外部请求和少量费用，等待用户明确授权后执行。
+
+## 2026-08-15 选择性 QA 真实验证
+
+- 用户授权后对 30 秒样本执行真实 DeepSeek QA；本地筛出 3/11 个候选，首次响应修改 2 条。
+- 核心修复：`They're gone.` 从“他们不见了。”修正为符合后续伤亡语境的“他们都死了。”。
+- `It was bad, Colson.` 复核后保持“情况很糟，科尔森。”，证明候选进入 QA 不等于强制修改。
+- 发现模型会移除候选句已有的对白前导 `-`，新增确定性的格式继承规则；复跑后只计 1 条语义改变，对白标记全部保留。
+- 初译缓存与 QA 缓存共 2 个内容寻址文件；在默认禁网环境完整复跑成功，没有新增 API 调用。
+- 最终构建 0 警告、0 错误，自动测试 21/21 通过。
+
+当前结论：选择性 QA 能以较小的额外请求修复单轮翻译中的关键上下文歧义，同时通过候选筛选、严格校验、格式继承和两级缓存控制费用与副作用。
+
+## 2026-08-15 项目工作区与阶段缓存
+
+- 新增 `SubtitleProjectManifest`、源文件指纹、阶段状态和阶段产物领域模型。
+- 新增完整文件 SHA-256 指纹服务；项目清单同时保存路径、长度和最后修改时间。
+- 新增依赖型 `PipelineCacheKeyBuilder`：阶段键由版本、配置和上游键共同计算，下游参数变化不会误使上游失效。
+- 新增原子写入的 `FileStageCache` 与 `FileProjectStore`；损坏 JSON 缓存按 miss 处理。
+- 新增 `CachingAudioExtractor` 和 `CachingTranscriptionEngine`，缓存命中时跳过 FFmpeg 和 Whisper。
+- benchmark 新增 `--project <directory>`，持久化 `project.json`、音频、音频元数据、转录结果和阶段缓存。
+- 项目清单可记录 audio、transcription、translation、translation-qa、export 的独立依赖键和产物。
+- 30 秒真实样本首次运行转录耗时 45.05 秒；第二次同时命中音频与转录缓存，转录阶段读取耗时 9.5 毫秒，整条命令 0.9 秒完成。
+- 缓存失效单元测试覆盖模型变化、翻译模型变化和字幕布局变化；当前自动测试 23/23 通过。
+
+当前结论：后续整集翻译、QA 参数调整和 WPF 恢复任务不再需要重复执行已完成的 FFmpeg/Whisper 阶段。下一步补全运行中、失败、取消状态的持久化，再将整集导入项目工作区。
+
+## 2026-08-15 最终字幕 QC
+
+- 新增最终字幕质量处理器，支持 `Auto`、`Suggest`、`Off` 三种模式；产品默认使用 `Auto`，不要求用户懂外语或逐条人工复核。
+- `Auto` 仅自动应用高置信、低风险的文本修正；阅读速度过高、显示时间过短、疑似未翻译等判断只记录为可选建议，不擅自改写译文或时间轴。
+- `Suggest` 生成中文说明的进阶检查清单但不自动修改；`Off` 完全跳过最终 QC。人工复核因此是可选进阶能力，不是标准流程的必经步骤。
+- benchmark 新增 `--qc auto|suggest|off`，默认 `auto`；项目状态新增 `final-qc` 阶段，并输出结构化 `qc-report.json`。
+- 43 分钟整集保守规则复跑结果：748 条字幕、27 条质量提示、1 条自动修正、26 条可选提示、非法时长 0。
+- 唯一自动修正为“趁着还没没油，我们快走吧。”→“趁着还没油，我们快走吧。”；已通过回归核对确认“达到目的的手段。”未被误改。
+- 提示分布：显示时间过短 23 条、阅读速度偏高 2 条、疑似重复字 1 条、疑似未翻译文本 1 条。短台词的短显示时长通常来自真实对白节奏，当前只提示、不自动拉伸时间轴。
+- 最终产物位于 `samples/private/full-project-qc/`：`chinese.srt`、`bilingual.srt`、`qc-report.json`；`project.json` 中 `final-qc` 状态为 `Completed`。
+- 当前解决方案构建 0 警告、0 错误，自动化测试 29/29 通过。
+
+当前结论：命令行端到端 MVP（媒体探测、音频提取、本地识别、DeepSeek 初译、选择性 QA、最终 QC、缓存恢复和字幕导出）已经完成。下一阶段进入 WPF 桌面 MVP，优先实现视频拖放、项目创建/恢复、任务参数、分阶段进度与结果导出；人工复核队列保留为可选进阶入口。
+
+## 2026-08-15 WPF 桌面 MVP：第一批界面
+
+- 将空白 WPF 窗口替换为可运行的任务首页，支持拖入单个视频或通过文件选择器导入 MKV、MP4、AVI、MOV、WMV、WebM、M4V。
+- 新增任务设置：中文字幕/双语字幕、Large v3 Turbo/Small 模型、DeepSeek Provider、选择性 AI QA，以及自动/建议/关闭三种最终 QC 模式。
+- 默认值采用已完成整集验证的组合：Large v3 Turbo Q5、DeepSeek、启用选择性 QA、双语字幕、自动 QC。
+- 使用 ViewModel 和命令承载状态、选择与启动前校验；界面代码只负责 Windows 文件选择和拖放事件，便于下一步接入后台任务服务。
+- 当前“开始生成字幕”已完成文件与参数入口校验，但尚未启动流水线；下一批将抽取 benchmark 中的端到端编排为应用层服务，并接入分阶段进度、取消与项目恢复。
+- 构建 0 警告、0 错误；自动化测试仍为 29/29 通过。
+
+## 2026-08-15 WPF 桌面 MVP：真实任务接入
+
+- 在 Application 层新增 `ISubtitleGenerationService`、`SubtitleGenerationRequest` 和 `SubtitleGenerationResult`，WPF 不再直接拼装各个媒体、识别、翻译和字幕组件。
+- 新增受控后台任务适配器，复用已经完成整集验证的 benchmark 流水线；文件路径通过 `ProcessStartInfo.ArgumentList` 传递，可安全处理中文、空格和特殊字符路径。
+- WPF 的“开始生成字幕”现已启动真实任务，默认传入 Silero VAD、Large v3 Turbo Q5、DeepSeek v4-flash、选择性 QA 与自动 QC。
+- 界面可接收并显示读取媒体、提取音频、语音识别、翻译、翻译 QA、最终质检和导出阶段消息；长任务在 UI 线程之外执行。
+- 新增运行状态与取消按钮；窗口关闭时会停止活动任务。项目与导出目录按视频名稳定生成，因此重新运行可以复用已有阶段缓存。
+- 成功后按用户选择显示中文字幕或双语字幕路径；失败信息展示在界面中，不会吞掉后台错误。
+- 当前过渡适配器以终止后台进程实现取消，已落盘缓存安全，但活动阶段可能暂时保留为 `Running`。下一批把编排主体迁入共享进程内服务后，将直接复用 `ProjectRunTracker` 原子持久化 `Cancelled`。
+- 构建 0 警告、0 错误；自动化测试 29/29 通过。
+
+当前结论：WPF 已从静态界面推进为可以实际启动完整字幕任务的桌面入口。下一阶段应迁移共享编排服务、补齐精确阶段百分比和可恢复状态展示，并增加“打开字幕/打开输出文件夹”完成任务闭环。
+
+## 2026-08-15 WPF 桌面 MVP：进程内共享编排
+
+- 新增 `SubtitleTranslator.Orchestration` 项目，统一编排媒体探测、音频缓存、Silero VAD、Whisper 转录、DeepSeek 翻译、选择性 QA、最终 QC 和 SRT 导出。
+- WPF 已直接使用 `InProcessSubtitleGenerationService`，删除通过 `dotnet run` 启动 benchmark 并解析控制台文本的过渡适配器。
+- 所有底层 `PipelineProgress` 现在直接传递给 ViewModel，VAD、转录和各主阶段均可实时更新界面，不再依赖字符串协议。
+- 取消令牌贯穿 FFmpeg、Whisper、DeepSeek 和导出；取消或窗口关闭时，活动阶段由 `ProjectRunTracker` 原子写入 `Cancelled`，异常则写入 `Failed`。
+- `.env` 显式从工作区根目录读取，不受 WPF 可执行文件启动目录影响；API Key 仍不进入项目清单、日志或缓存。
+- 项目目录继续按视频名称稳定生成，音频、转录和翻译缓存均由依赖键控制恢复；成功产物位于项目的 `exports` 目录。
+- 新增项目首次还原在无网络沙箱中使用本机缓存完成；临时复制到工作区的 1.2 GB NuGet 包已删除，不保留重复依赖。
+- 构建 0 警告、0 错误；自动化测试 29/29 通过。
+
+当前结论：WPF 长任务已经具备真正的进程内执行、进度、取消、失败记录和缓存恢复能力。下一阶段优先完成任务完成页：阶段进度条、项目状态恢复展示，以及“打开字幕”“打开输出文件夹”操作；随后再让 benchmark 也改用同一个共享编排入口，彻底移除重复编排代码。
+
+## 2026-08-15 WPF 桌面 MVP：任务闭环与预览 EXE
+
+- 任务页新增总体进度条、阶段名称、阶段消息和百分比；进度权重按真实任务特征分配，识别与翻译占主要比例。
+- 成功后显示结果卡片和用户所选字幕路径，并提供“打开字幕”和“打开输出文件夹”操作。
+- 更换视频或重新开始任务时会清理旧结果状态；取消、失败和完成状态均有明确中文反馈。
+- 首次发布启动检查发现 WPF `ProgressBar.Value` 默认 TwoWay 绑定只读属性导致异常退出；已改为显式 OneWay，并通过 Windows `.NET Runtime` 日志定位和修复。
+- 已生成 framework-dependent Windows 预览版 `artifacts/preview-win-x64/SubtitleTranslator.App.exe`，依赖当前电脑已安装的 .NET Desktop Runtime 10。
+- 发布目录包含应用程序集、Whisper.net 和 CUDA runtime；模型、FFmpeg、`.env` 与项目数据继续从开发工作区读取。
+- 修复后的 EXE 已完成 3 秒真实启动冒烟测试，进程正常保持运行后由测试主动关闭。
+- 构建 0 警告、0 错误；自动化测试 29/29 通过。
+
+当前结论：用户现在可以直接双击预览 EXE 查看并使用桌面界面。下一阶段进入可分发打包：配置应用图标和版本信息、统一依赖目录、环境诊断页，并生成无需开发工作区的自包含 Windows x64 包。
+
+## 2026-08-15 轻量安装策略：模型管理第一阶段
+
+- 新增 `%LocalAppData%\AI字幕翻译` 用户数据根目录；设置写入 `settings.json`，下载模型写入 `models`，项目与缓存写入 `projects`。
+- 新增本地 Whisper GGML 模型选择，接受 `.bin` 文件并执行存在性、扩展名和最低合理大小校验；选择结果跨启动持久化。
+- 新增官方推荐模型目录：`small-q5_1`（约 190 MB，速度优先）和 `large-v3-turbo-q5_0`（约 574 MB，推荐质量）。
+- 模型下载使用 Hugging Face 上 `ggerganov/whisper.cpp` 官方仓库的 `resolve/main` 文件地址。
+- 下载写入 `.partial` 文件，支持 HTTP Range 断点续传、进度显示和取消；服务器不支持 Range 时会安全重头下载。
+- 下载完成后执行 SHA-256 校验，仅校验通过才原子提升为正式 `.bin` 模型；失败或取消保留临时文件用于继续下载。
+- WPF 模型区域新增“选择本地模型”“下载所选模型”“取消下载”、下载进度和当前模型路径/大小显示。
+- 不再按固定模型名称启动识别，实际字幕任务使用用户已选择并持久化的模型路径。
+- 更新后的预览 EXE 已发布并通过真实启动冒烟检查；未实际下载大型模型。
+- 构建 0 警告、0 错误；自动化测试 31/31 通过，其中新增设置原子保存与模型 SHA-256 下载校验测试。
+
+当前限制：Silero VAD、FFmpeg/FFprobe 和 DeepSeek `.env` 仍从开发工作区读取。下一阶段将这些小型运行依赖迁入应用目录或用户数据目录，并把 API Key 配置迁入加密设置界面。
+
+## 2026-08-15 轻量安装策略：运行依赖与加密密钥
+
+- 新增 `ISecretStore` 与 Windows DPAPI 实现；DeepSeek API Key 以当前 Windows 用户为保护范围加密保存到 `%LocalAppData%\AI字幕翻译\secrets`。
+- WPF 新增密码输入、保存状态和删除操作；保存后不回显明文，字幕任务只在内存中把密钥传给 DeepSeek Provider。
+- `SubtitleGenerationRequest` 支持显式内存密钥；进程内编排优先使用该值，仅为兼容命令行保留 `.env` 回退。
+- 发布规则新增 `tools` 目录，随包携带 FFmpeg、FFprobe 和 `ggml-silero-v6.2.0.bin`；运行时优先查找应用目录，不再要求开发工作区。
+- FFmpeg 路径通过发布参数 `FFmpegBinDirectory` 注入，避免在项目文件中硬编码开发电脑的绝对路径。
+- 当前发布目录已验证包含 `ffmpeg.exe`、`ffprobe.exe` 和 Silero VAD，完整目录约 507 MB；主要体积来自 CUDA runtime 和静态 FFmpeg，并不包含大型 Whisper 模型。
+- 新增 DPAPI 密钥写入、读取、删除与非明文落盘测试；自动化测试 32/32 通过。
+- 更新后的预览 EXE 已通过真实启动冒烟检查。
+
+当前结论：预览发布目录已不依赖源码工作区，只需目标电脑安装 .NET Desktop Runtime 10，并由用户选择或下载 Whisper 模型。下一阶段可制作正式安装器，并评估共享 DLL 版 FFmpeg 或按需下载 CUDA runtime 以进一步降低安装包体积。
+
+## 2026-08-15 最小框架包与组件诊断
+
+- 将 `Whisper.net.Runtime.Cuda` 改为条件化构建引用；默认应用发布不携带 CUDA 原生库，GPU 开发基准可使用 `IncludeWhisperCudaRuntime=true` 显式包含。
+- `TranscriptionOptions` 新增自定义原生 runtime 路径，Whisper.net 在首次创建 Factory 前通过 `RuntimeOptions.LibraryPath` 加载用户选择的 `whisper.dll`。
+- 新增 FFmpeg、FFprobe、Whisper 模型、Silero VAD 和 Whisper runtime 五项环境诊断；只有五项都就绪才允许启动完整字幕任务。
+- 诊断支持从用户设置和系统 PATH 发现 FFmpeg/FFprobe；配置界面新增“选择 FFmpeg”“选择 VAD”“选择运行组件”和“重新检测”。
+- 选择 FFmpeg 时会自动关联同目录 `ffprobe.exe`；选择 runtime 时要求目录包含 `whisper.dll`。
+- 基础发布规则移除 FFmpeg、FFprobe、VAD 与 CUDA runtime，不再创建 `tools` 或 `runtimes` 目录。
+- 全新 `artifacts/minimal-win-x64` 发布结果为 23 个文件、1,365,178 字节（1.30 MiB），相比此前约 507 MB 的预览目录减少约 99.7%。
+- 最小包不含 `ffmpeg.exe`、`whisper.dll`、VAD 和任何 Whisper 模型；目标电脑仍需 .NET Desktop Runtime 10。
+- 最小 EXE 在不携带原生依赖的情况下完成真实启动冒烟检查，可正常进入依赖配置界面。
+- 新增环境诊断完整/缺失回归测试；自动化测试 33/33 通过。
+
+当前限制：应用内直接下载目前只覆盖 Whisper 模型；FFmpeg、VAD、CPU runtime 和 CUDA runtime 已支持本地选择与检测，但推荐组件清单、下载/解压/安装尚待接入统一组件管理器。
+
+## 2026-08-15 统一组件管理器
+
+- 新增通用 `DownloadableComponent` 清单和 `IComponentInstallService`，复用既有断点下载与 SHA-256 校验能力。
+- 支持原始文件和 ZIP/NuGet 包两种组件格式；压缩包只提取清单指定前缀，目标路径经过绝对路径边界校验，阻止 Zip Slip 路径穿越。
+- 安装先写入随机 staging 目录，验证必需文件存在后再提升为正式组件目录；取消或失败会清理 staging，下载 `.partial` 保留用于续传。
+- 内置 Silero VAD 6.2.0 清单，来源为 whisper.cpp Hugging Face 仓库，固定大小与 SHA-256。
+- 内置 Whisper.net 1.9.1 CPU runtime 和 CUDA Windows runtime 清单，来源为 NuGet flat-container，固定包大小与 SHA-256；安装时仅提取 `build/win-x64`。
+- WPF 新增“下载 VAD”“安装 CPU 组件”“安装 CUDA 组件”、统一进度、取消和状态反馈；安装完成后自动更新设置并重新检测环境。
+- 新增“移除已安装组件”，必须经过用户确认，只删除 `%LocalAppData%\AI字幕翻译\components` 内应用管理的 VAD/runtime，不删除外部手动选择文件。
+- FFmpeg 官方不直接分发 Windows 二进制，当前保留本地选择并提供 FFmpeg 官方 Windows 下载说明入口，避免静默安装未固定校验的第三方构建。
+- 新增选择性提取与 Zip Slip 拒绝测试；自动化测试 35/35 通过。
+- 更新后的最小包仍为 24 个文件、1,389,341 字节（1.32 MiB），不含 FFmpeg 或 `whisper.dll`，真实启动冒烟检查通过。
+
+当前限制：CUDA runtime 安装完成只验证文件结构，尚未检测 NVIDIA 驱动、CUDA Toolkit/driver 兼容性并执行短推理自检；FFmpeg 仍需用户从可信 Windows 构建来源下载后选择路径。
+
+## 2026-08-15 GPU 诊断与 Whisper 推理自检
+
+- 新增 `IHardwareDiagnosticService`，通过 `nvidia-smi` 检测 NVIDIA GPU 名称、驱动版本和 Compute Capability，并读取 `CUDA_PATH` 判断 Toolkit 路径与版本。
+- 诊断结合当前 runtime 类型给出警告：CUDA runtime 未检测到 NVIDIA GPU、缺少 CUDA Toolkit、或 runtime 尚未配置。
+- 本机实测检测结果：NVIDIA GeForce GTX 1660 SUPER、驱动 595.71、Compute Capability 7.5、CUDA Toolkit v13.2。
+- 新增 `IWhisperRuntimeSelfTestService`：在本地生成一秒 16 kHz、16-bit mono 静音 WAV，实际加载用户选择的 `whisper.dll` 与 Whisper 模型并执行推理。
+- 自检不访问网络、不调用 DeepSeek；结果显示 CPU/CUDA runtime 类型、成功/失败和耗时，并支持取消。
+- runtime 已加载后若用户选择另一套原生库，会明确要求重启应用，避免同一进程混用不兼容 native library。
+- WPF 环境区域新增 GPU/CUDA 状态、“运行推理自检”和结果文本；任务设置区增加垂直滚动，适配较小屏幕。
+- 新增无 runtime 硬件诊断安全性测试；自动化测试 36/36 通过。
+- 更新后的最小包为 24 个文件、1,410,656 字节（1.35 MiB），仍不包含任何原生 runtime、FFmpeg、VAD 或 Whisper 模型；真实启动冒烟检查通过。
+
+当前限制：自动化回归只覆盖诊断逻辑；实际推理自检需要用户先在界面选择或安装 runtime 和模型后主动运行。下一阶段可增加首次配置向导，将当前较密集的单页设置拆为逐步引导流程。
+
+## 2026-08-15 可恢复阶段状态机
+
+- 新增 `ProjectRunTracker`，每个阶段开始前原子写入 `Running`，完成后写入 `Completed` 和产物列表。
+- 未处理异常会把当前活动阶段写为 `Failed`，保存单行、限长的错误摘要；Ctrl+C/取消令牌写为 `Cancelled`。
+- probe、audio、transcription、translation、translation-qa 和 export 已接入统一状态跟踪。
+- 重新打开相同源指纹的项目会保留 ProjectId 和历史阶段；源 SHA-256 改变时创建新项目身份并清空旧阶段状态。
+- 项目状态枚举使用可读字符串序列化，如 `Running`、`Completed`、`Failed`、`Cancelled`。
+- 真实成功项目验证 probe/audio/transcription 均为 `Completed`；故意指定不存在的 ffprobe 后，probe 正确持久化为 `Failed` 并记录错误。
+- 运行中、失败、完成、取消和更换源文件均有自动测试；当前构建 0 警告、0 错误，自动测试 25/25 通过。
+
+当前结论：命令行和未来 WPF 均可从 `project.json` 判断上次停止位置，并依靠阶段键与缓存安全恢复。下一步可把 43 分钟整集导入正式项目工作区，先复用已验证的本地识别配置，再执行可恢复的 DeepSeek 翻译。
+
+## 2026-08-15 整集可恢复翻译验收
+
+- 43:01.6 视频已导入正式项目 `shield-s02e02`，本地识别输出 748 段；首次项目识别 5 分 00.5 秒。
+- 整集音频和 Whisper 转录缓存验证成功；再次读取转录仅 13.8 毫秒。
+- 用户明确授权后，将 748 段分成 19 个 DeepSeek v4-flash 初译批次并执行选择性 QA。
+- 首次在第 2 批发现漏失 SegmentId 77，严格校验拒绝该批且项目状态写为 Failed；已完成的第 1 批保留缓存。
+- 新增应用级结构校验重试，每批最多 3 次；恢复后第 2、7 批各重试一次，最终 748/748 完整翻译。
+- 本地 QA 筛出 77 段，DeepSeek 实际修改 24 段；初译 19 个缓存文件、QA 1 个缓存文件。
+- 成功输出 748 条中文 SRT 和 748 条双语 SRT，非法时长为 0；项目所有阶段均为 Completed。
+- 在默认禁网环境完整复跑只需 2.5 秒，证明音频、转录、19 个初译批次和 QA 均从缓存恢复，没有重复 API 调用。
+- 抽查发现最终质量仍受原文 ASR 误识别影响，并存在“还没没油”一类中文重复字病句；下一阶段加入最终字幕 QC 与人工复核队列。
+- 当前构建 0 警告、0 错误，自动测试 26/26 通过。
