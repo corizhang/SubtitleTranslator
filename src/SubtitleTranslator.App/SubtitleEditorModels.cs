@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SubtitleTranslator.Subtitles;
 
 namespace SubtitleTranslator.App;
@@ -27,6 +28,10 @@ public sealed class EditableSubtitleCue : INotifyPropertyChanged
     public string Preview => Text.Replace('\r', ' ').Replace('\n', ' ');
     public string IssueSummary { get => issueSummary; set => Set(ref issueSummary, value); }
     public bool HasIssue => !string.IsNullOrEmpty(IssueSummary);
+    public string IssueStateDisplay => HasIssue ? IssueSummary : "未发现问题";
+    public bool HasError { get; private set; }
+    public bool HasWarning { get; private set; }
+    public bool IsModified { get; private set; }
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public bool TryToCue(out SubtitleCue cue)
@@ -42,7 +47,31 @@ public sealed class EditableSubtitleCue : INotifyPropertyChanged
         if (field == value) return;
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        if (name is nameof(StartText) or nameof(EndText) or nameof(Text))
+        {
+            IsModified = true;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsModified)));
+        }
         if (name == nameof(Text)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+    }
+
+    public void SetIssues(IEnumerable<SubtitleCueIssue> issues)
+    {
+        var values = issues.ToArray();
+        HasError = values.Any(x => x.Severity == SubtitleIssueSeverity.Error);
+        HasWarning = values.Any(x => x.Severity == SubtitleIssueSeverity.Warning);
+        IssueSummary = string.Join("；", values.Select(x =>
+            (x.Severity == SubtitleIssueSeverity.Error ? "错误：" : "提示：") + x.Message));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasIssue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IssueStateDisplay)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasError)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasWarning)));
+    }
+
+    public void AcceptChanges()
+    {
+        IsModified = false;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsModified)));
     }
 }
 
@@ -52,13 +81,29 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     private EditableSubtitleCue? selectedCue;
     private string status = "正在读取字幕……";
     private bool isDirty;
+    private string issueFilter = "全部字幕";
+
+    public SubtitleEditorViewModel()
+    {
+        CuesView = CollectionViewSource.GetDefaultView(Cues);
+        CuesView.Filter = MatchesFilter;
+    }
 
     public ObservableCollection<EditableSubtitleCue> Cues { get; } = [];
+    public ICollectionView CuesView { get; }
     public ObservableCollection<SubtitleCueIssue> Issues { get; } = [];
+    public IReadOnlyList<string> IssueFilters { get; } = ["全部字幕", "仅问题", "仅错误", "仅提示", "已修改"];
     public EditableSubtitleCue? SelectedCue { get => selectedCue; set { selectedCue = value; Notify(); Notify(nameof(HasSelection)); } }
     public bool HasSelection => SelectedCue is not null;
     public string Status { get => status; private set { status = value; Notify(); } }
-    public bool IsDirty { get => isDirty; private set { isDirty = value; Notify(); } }
+    public bool IsDirty { get => isDirty; private set { isDirty = value; Notify(); Notify(nameof(DirtyStateDisplay)); } }
+    public string DirtyStateDisplay => IsDirty ? "有未保存修改" : "所有修改已保存";
+    public string IssueFilter { get => issueFilter; set { if (issueFilter == value) return; issueFilter = value; Notify(); RefreshFilter(); } }
+    public int TotalCueCount => Cues.Count;
+    public int ErrorCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Error);
+    public int WarningCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Warning);
+    public int IssueCueCount => Cues.Count(x => x.HasIssue);
+    public bool HasIssues => Issues.Count > 0;
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public async Task LoadAsync(string path)
@@ -76,6 +121,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
             Cues.Add(row);
         }
         SelectedCue = Cues.FirstOrDefault();
+        foreach (var cue in Cues) cue.AcceptChanges();
         IsDirty = false;
         Validate();
     }
@@ -83,7 +129,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     public bool Validate()
     {
         Issues.Clear();
-        foreach (var cue in Cues) cue.IssueSummary = string.Empty;
+        foreach (var cue in Cues) cue.SetIssues([]);
         var parsed = new List<SubtitleCue>(Cues.Count);
         foreach (var row in Cues)
         {
@@ -91,21 +137,21 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
             {
                 var issue = new SubtitleCueIssue(row.Number, SubtitleIssueSeverity.Error, "invalid-time", "时间格式应为 00:00:00,000");
                 Issues.Add(issue);
-                row.IssueSummary = "错误：" + issue.Message;
             }
             else parsed.Add(cue);
         }
         if (parsed.Count == Cues.Count)
         {
             foreach (var issue in service.Validate(parsed)) Issues.Add(issue);
-            foreach (var group in Issues.GroupBy(x => x.CueNumber))
-                Cues[group.Key - 1].IssueSummary = string.Join("；", group.Select(x =>
-                    (x.Severity == SubtitleIssueSeverity.Error ? "错误：" : "提示：") + x.Message));
+            foreach (var group in Issues.GroupBy(x => x.CueNumber)) Cues[group.Key - 1].SetIssues(group);
         }
-        var errors = Issues.Count(x => x.Severity == SubtitleIssueSeverity.Error);
-        var warnings = Issues.Count - errors;
+        else foreach (var group in Issues.GroupBy(x => x.CueNumber)) Cues[group.Key - 1].SetIssues(group);
+        var errors = ErrorCount;
+        var warnings = WarningCount;
         Status = Issues.Count == 0 ? $"共 {Cues.Count} 条字幕，未发现问题。" :
             $"共 {Cues.Count} 条字幕：{errors} 个错误，{warnings} 个提示。";
+        NotifySummary();
+        RefreshFilter();
         return errors == 0;
     }
 
@@ -114,6 +160,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
         if (!Validate()) throw new InvalidOperationException("字幕存在错误，请先根据红色提示修正。");
         var cues = Cues.Select(row => { row.TryToCue(out var cue); return cue; }).ToArray();
         await service.SaveAsync(path, cues, CancellationToken.None);
+        foreach (var cue in Cues) cue.AcceptChanges();
         IsDirty = false;
         Status = $"已保存 {Cues.Count} 条字幕：{path}";
     }
@@ -126,6 +173,28 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
             ? Issues.FirstOrDefault(x => x.CueNumber > current) ?? Issues.First()
             : Issues.LastOrDefault(x => x.CueNumber < current) ?? Issues.Last();
         SelectedCue = Cues.FirstOrDefault(x => x.Number == target.CueNumber);
+    }
+
+    private bool MatchesFilter(object value) => value is EditableSubtitleCue cue && IssueFilter switch
+    {
+        "仅问题" => cue.HasIssue,
+        "仅错误" => cue.HasError,
+        "仅提示" => cue.HasWarning,
+        "已修改" => cue.IsModified,
+        _ => true
+    };
+
+    private void RefreshFilter()
+    {
+        CuesView.Refresh();
+        if (SelectedCue is not null && !CuesView.Cast<EditableSubtitleCue>().Contains(SelectedCue))
+            SelectedCue = CuesView.Cast<EditableSubtitleCue>().FirstOrDefault();
+    }
+
+    private void NotifySummary()
+    {
+        Notify(nameof(TotalCueCount)); Notify(nameof(ErrorCount)); Notify(nameof(WarningCount));
+        Notify(nameof(IssueCueCount)); Notify(nameof(HasIssues));
     }
 
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

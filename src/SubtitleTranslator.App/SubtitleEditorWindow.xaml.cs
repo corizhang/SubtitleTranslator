@@ -7,7 +7,7 @@ using SubtitleTranslator.Infrastructure;
 
 namespace SubtitleTranslator.App;
 
-public partial class SubtitleEditorWindow : Window
+public partial class SubtitleEditorWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly SubtitleEditorViewModel viewModel = new();
     private readonly string videoPath;
