@@ -46,7 +46,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TabControl x:Name="WizardTabs" BorderThickness="0" Background="Transparent">
+            <TabControl x:Name="WizardTabs" SelectedIndex="0" BorderThickness="0" Background="Transparent">
                 <TabControl.Template>
                     <ControlTemplate TargetType="TabControl">
                         <ContentPresenter ContentSource="SelectedContent" />

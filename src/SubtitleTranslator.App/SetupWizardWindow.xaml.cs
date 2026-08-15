@@ -16,6 +16,7 @@ public partial class SetupWizardWindow : Window
         this.viewModel = viewModel;
         DataContext = viewModel;
         stepLabels = [StepGpu, StepFfmpeg, StepRuntime, StepModel, StepDeepSeek];
+        WizardTabs.SelectedIndex = 0;
         UpdateNavigation();
     }
 
