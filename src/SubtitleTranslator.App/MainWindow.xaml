@@ -124,7 +124,7 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="18"/><ColumnDefinition/></Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource LabelText}" Text="自定义目录（选择自定义目录时使用）"/>
-                                    <TextBox Text="{Binding CustomOutputDirectory}" IsReadOnly="True" Padding="8,6"/>
+                                    <TextBox Text="{Binding CustomOutputDirectory, Mode=OneWay}" IsReadOnly="True" Padding="8,6"/>
                                 </StackPanel>
                                 <Button Grid.Column="2" Content="选择目录" Click="SelectOutputDirectory_OnClick" VerticalAlignment="Bottom"/>
                                 <StackPanel Grid.Column="4">

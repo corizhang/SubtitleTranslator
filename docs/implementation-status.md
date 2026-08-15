@@ -393,6 +393,12 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 新增同目录发布、备份覆盖、自动编号、自定义模板、非致命发布失败和发布设置往返测试；全套自动化测试更新为 50/50。
 - 应用及 MSI 版本提升为 `0.4.0`。
 
+## 2026-08-15 0.4.1 输出目录绑定热修复
+
+- 修复主页启动异常：只读的 `CustomOutputDirectory` 被 `TextBox.Text` 默认按 TwoWay 绑定，WPF 在创建主窗口时抛出 `InvalidOperationException`。
+- 将该绑定显式设为 OneWay；自定义目录仍只通过“选择目录”按钮安全更新。
+- 扫描其余 TextBox 绑定，时间、正文和命名模板均对应可写属性，不存在同类问题。
+
 ## 2026-08-15 整集可恢复翻译验收
 
 - 43:01.6 视频已导入正式项目 `shield-s02e02`，本地识别输出 748 段；首次项目识别 5 分 00.5 秒。
