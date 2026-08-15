@@ -30,23 +30,46 @@ public sealed class TranslationOrchestrator(ITranslationProvider provider)
                 "translate", index * 100d / batches.Count,
                 $"Translating batch {index + 1}/{batches.Count}"));
             IReadOnlyList<TranslationSegment>? validated = null;
+            var accumulated = new Dictionary<int, TranslationSegment>();
+            IReadOnlyList<TranslationRequestSegment> pending = items;
             Exception? lastError = null;
             for (var attempt = 1; attempt <= options.MaximumAttemptsPerBatch; attempt++)
             {
                 try
                 {
                     var response = await provider.TranslateAsync(
-                        new TranslationBatch(items, sourceLanguage), context, cancellationToken);
-                    validated = TranslationResponseValidator.ValidateAndOrder(items, response);
-                    break;
+                        new TranslationBatch(pending, sourceLanguage), context, cancellationToken);
+                    foreach (var translatedItem in TranslationResponseValidator.ValidatePartial(pending, response))
+                        accumulated[translatedItem.SegmentId] = translatedItem;
+                    pending = items.Where(item => !accumulated.ContainsKey(item.SegmentId)).ToArray();
+                    if (pending.Count == 0)
+                    {
+                        validated = TranslationResponseValidator.ValidateAndOrder(items, accumulated.Values.ToArray());
+                        if (provider is ICompleteTranslationBatchCache cache)
+                            await cache.CacheCompleteAsync(
+                                new TranslationBatch(items, sourceLanguage), context, validated, cancellationToken);
+                        break;
+                    }
+                    lastError = new InvalidOperationException(
+                        $"Translation response is missing {pending.Count} segment(s): {string.Join(", ", pending.Select(x => x.SegmentId))}.");
+                    if (attempt < options.MaximumAttemptsPerBatch)
+                    {
+                        progress?.Report(new PipelineProgress(
+                            "translate", index * 100d / batches.Count,
+                            $"Batch {index + 1} missing {pending.Count} segment(s); repairing {string.Join(",", pending.Select(x => x.SegmentId))}"));
+                        await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
+                    }
                 }
-                catch (InvalidOperationException exception) when (attempt < options.MaximumAttemptsPerBatch)
+                catch (InvalidOperationException exception)
                 {
                     lastError = exception;
-                    progress?.Report(new PipelineProgress(
-                        "translate", index * 100d / batches.Count,
-                        $"Batch {index + 1} validation failed; retry {attempt + 1}/{options.MaximumAttemptsPerBatch}"));
-                    await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
+                    if (attempt < options.MaximumAttemptsPerBatch)
+                    {
+                        progress?.Report(new PipelineProgress(
+                            "translate", index * 100d / batches.Count,
+                            $"Batch {index + 1} validation failed; retry {attempt + 1}/{options.MaximumAttemptsPerBatch}"));
+                        await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
+                    }
                 }
             }
             if (validated is null)

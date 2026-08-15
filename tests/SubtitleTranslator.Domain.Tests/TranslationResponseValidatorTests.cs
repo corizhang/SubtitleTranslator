@@ -30,6 +30,7 @@ public sealed class TranslationResponseValidatorTests
             new TranslationOptions(MaximumAttemptsPerBatch: 2), null, CancellationToken.None);
 
         Assert.Equal(2, provider.Calls);
+        Assert.Equal([[0, 1], [1]], provider.RequestedIds);
         Assert.Equal(2, result.Count);
     }
 
@@ -58,11 +59,13 @@ public sealed class TranslationResponseValidatorTests
     private sealed class MissingOnceProvider : SubtitleTranslator.Application.ITranslationProvider
     {
         public int Calls { get; private set; }
+        public List<int[]> RequestedIds { get; } = [];
 
         public Task<IReadOnlyList<TranslationSegment>> TranslateAsync(
             TranslationBatch batch, TranslationContext context, CancellationToken cancellationToken)
         {
             Calls++;
+            RequestedIds.Add(batch.Segments.Select(x => x.SegmentId).ToArray());
             IReadOnlyList<TranslationSegment> result = (Calls == 1 ? batch.Segments.Take(1) : batch.Segments)
                 .Select(item => new TranslationSegment(item.SegmentId, $"译:{item.Text}"))
                 .ToArray();
