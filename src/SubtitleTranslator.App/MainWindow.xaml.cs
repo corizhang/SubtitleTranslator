@@ -14,6 +14,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private BatchQueuePage? batchQueuePage;
     private ProjectLibraryPage? projectLibraryPage;
     private ResourceManagementPage? resourceManagementPage;
+    private SettingsPage? settingsPage;
+    private DiagnosticsPage? diagnosticsPage;
 
     public MainWindow()
     {
@@ -44,14 +46,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(resourceManagementPage, ResourcesNavigation);
     }
 
-    private void OpenSettings_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
+    private void OpenSettings_OnClick(object sender, RoutedEventArgs e)
+    {
+        settingsPage ??= new SettingsPage(viewModel);
+        ShowPage(settingsPage, SettingsNavigation);
+    }
 
     private void OpenDiagnostics_OnClick(object sender, RoutedEventArgs e)
     {
-        var logPath = System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI字幕翻译", "logs", "app.log");
-        MessageBox.Show(this, $"{viewModel.SetupSummary}\n\n应用日志：\n{logPath}", "诊断中心",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        diagnosticsPage ??= new DiagnosticsPage(viewModel);
+        ShowPage(diagnosticsPage, DiagnosticsNavigation);
     }
 
     private void OpenProjectsFolder_OnClick(object sender, RoutedEventArgs e)
@@ -96,7 +100,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         PageHost.Content = page;
         PageHost.Visibility = page is null ? Visibility.Collapsed : Visibility.Visible;
 
-        foreach (var button in new[] { WorkbenchNavigation, BatchNavigation, ProjectsNavigation, ResourcesNavigation })
+        foreach (var button in new[] { WorkbenchNavigation, BatchNavigation, ProjectsNavigation, ResourcesNavigation, SettingsNavigation, DiagnosticsNavigation })
             button.Style = (Style)FindResource("NavigationButtonStyle");
         selectedNavigation.Style = (Style)FindResource("SelectedNavigationButtonStyle");
     }

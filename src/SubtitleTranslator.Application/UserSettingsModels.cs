@@ -12,7 +12,11 @@ public sealed record UserSettings(
     SubtitleNamingStrategy SubtitleNamingStrategy = SubtitleNamingStrategy.VideoNameWithTags,
     SubtitleConflictPolicy SubtitleConflictPolicy = SubtitleConflictPolicy.BackupAndOverwrite,
     string? SubtitleCustomDirectory = null,
-    string SubtitleNamingTemplate = "{video-name}.{language}.{layout}.srt");
+    string SubtitleNamingTemplate = "{video-name}.{language}.{layout}.srt",
+    string DefaultOutputMode = "中文 + 原语言双字幕",
+    string DefaultQualityMode = "自动（推荐）",
+    string DefaultSourceLanguage = "自动检测",
+    bool DefaultTranslationQaEnabled = true);
 
 public enum SubtitlePublishLocation { VideoDirectory, CustomDirectory, ProjectOnly }
 public enum SubtitleNamingStrategy { VideoNameWithTags, SameAsVideo, CustomTemplate }

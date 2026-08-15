@@ -105,6 +105,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         selectedConflictPolicy = ConflictPolicyName(settings.SubtitleConflictPolicy);
         customOutputDirectory = settings.SubtitleCustomDirectory ?? string.Empty;
         namingTemplate = settings.SubtitleNamingTemplate;
+        selectedOutputMode = settings.DefaultOutputMode;
+        selectedQualityMode = settings.DefaultQualityMode;
+        selectedSourceLanguage = settings.DefaultSourceLanguage;
+        translationQaEnabled = settings.DefaultTranslationQaEnabled;
         modelStatus = DescribeModel(selectedModelPath);
         StartCommand = new AsyncRelayCommand(StartAsync, CanStart);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
@@ -620,6 +624,47 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SubtitleNamingTemplate = options.NamingTemplate
         };
         await settingsStore.SaveAsync(settings, CancellationToken.None);
+    }
+
+    public async Task SaveDefaultSettingsAsync()
+    {
+        var options = BuildPublicationOptions();
+        settings = settings with
+        {
+            SubtitlePublishLocation = options.Location,
+            SubtitleNamingStrategy = options.NamingStrategy,
+            SubtitleConflictPolicy = options.ConflictPolicy,
+            SubtitleCustomDirectory = options.CustomDirectory,
+            SubtitleNamingTemplate = options.NamingTemplate,
+            DefaultOutputMode = SelectedOutputMode,
+            DefaultQualityMode = SelectedQualityMode,
+            DefaultSourceLanguage = SelectedSourceLanguage,
+            DefaultTranslationQaEnabled = TranslationQaEnabled
+        };
+        await settingsStore.SaveAsync(settings, CancellationToken.None);
+        StatusMessage = "默认任务与字幕交付设置已保存。";
+    }
+
+    public string BuildRedactedDiagnosticReport()
+    {
+        var version = typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "未知";
+        return string.Join(Environment.NewLine,
+            "AI 字幕翻译 - 脱敏诊断报告",
+            $"生成时间：{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}",
+            $"应用版本：{version}",
+            $"系统：{Environment.OSVersion.VersionString} / {Environment.Is64BitOperatingSystem switch { true => "x64", false => "x86" }}",
+            $"资源状态：{ResourceReadinessDisplay}",
+            $"硬件：{HardwareStatus}",
+            $"FFmpeg：{FfmpegStatus}",
+            $"Whisper Runtime：{RuntimeStatus}",
+            $"Silero VAD：{VadStatus}",
+            $"Whisper 模型：{WhisperModelStatus}",
+            $"DeepSeek：{(HasSavedApiKey ? "已保存加密密钥" : "未配置密钥")}",
+            $"连接测试：{DeepSeekConnectionStatus}",
+            $"推理自检：{SelfTestStatus}",
+            $"项目存储：{ProjectStorageSummary}",
+            "说明：报告不包含 API Key、视频路径、模型路径或字幕正文。可信支持人员可能会另行要求应用日志。"
+        );
     }
 
     private string BuildPublicationPreview()

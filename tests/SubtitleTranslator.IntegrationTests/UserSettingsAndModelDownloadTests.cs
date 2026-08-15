@@ -132,7 +132,11 @@ public sealed class UserSettingsAndModelDownloadTests
                 SubtitleNamingStrategy: SubtitleNamingStrategy.CustomTemplate,
                 SubtitleConflictPolicy: SubtitleConflictPolicy.AutoNumber,
                 SubtitleCustomDirectory: @"D:\subtitles",
-                SubtitleNamingTemplate: "{video-name}.{language}.edited.srt");
+                SubtitleNamingTemplate: "{video-name}.{language}.edited.srt",
+                DefaultOutputMode: "仅中文字幕",
+                DefaultQualityMode: "生成建议清单",
+                DefaultSourceLanguage: "日语",
+                DefaultTranslationQaEnabled: false);
             await store.SaveAsync(expected, CancellationToken.None);
             var actual = await store.LoadAsync(CancellationToken.None);
             Assert.Equal(expected, actual);

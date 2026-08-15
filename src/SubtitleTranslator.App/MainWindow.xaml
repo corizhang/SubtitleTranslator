@@ -17,11 +17,11 @@
                     <Button x:Name="BatchNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenBatchQueue_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="List24" Width="28"/><TextBlock Text="批量任务" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button x:Name="ProjectsNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenProjectHistory_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Folder24" Width="28"/><TextBlock Text="项目库" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button x:Name="ResourcesNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenResources_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Box24" Width="28"/><TextBlock Text="资源与模型" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenSettings_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Settings24" Width="28"/><TextBlock Text="设置" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="SettingsNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenSettings_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Settings24" Width="28"/><TextBlock Text="设置" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
                 <StackPanel Grid.Row="2">
                     <Border Margin="16,0,16,10" Padding="12" Background="#1E2942" CornerRadius="8"><StackPanel><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" Margin="0,0,7,0"/><TextBlock Text="环境与组件" Foreground="#AEB8CC" FontSize="11"/></StackPanel><TextBlock Text="点击资源与模型查看" Foreground="White" FontSize="11" Margin="0,7,0,0"/></StackPanel></Border>
-                    <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenDiagnostics_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Pulse24" Width="28"/><TextBlock Text="诊断中心" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="DiagnosticsNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenDiagnostics_OnClick"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Pulse24" Width="28"/><TextBlock Text="诊断中心" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
             </Grid>
         </Border>
