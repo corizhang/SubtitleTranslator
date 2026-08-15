@@ -73,6 +73,10 @@ public sealed class ProjectHistoryService
         if (Directory.Exists(full)) Directory.Delete(full, true);
     }
 
+    public Task<SubtitleTranslator.Application.SubtitlePublicationReceipt> RepublishAsync(
+        ProjectHistoryItem project, CancellationToken cancellationToken) =>
+        new SubtitlePublicationService().RepublishAsync(project.ProjectDirectory, null, cancellationToken);
+
     private static string SafeChild(string root, string name)
     {
         var fullRoot = Path.GetFullPath(root);
@@ -125,6 +129,8 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
         SelectedProject = Projects.FirstOrDefault(x => x.ProjectDirectory == selectedPath) ?? Projects.FirstOrDefault();
         Message = Projects.Count == 0 ? "还没有项目。完成或中断一次字幕任务后会显示在这里。" : $"共 {Projects.Count} 个项目。";
     }
+
+    public void SetMessage(string value) => Message = value;
 
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

@@ -28,6 +28,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly IComponentInstallService componentInstallService;
     private readonly IHardwareDiagnosticService hardwareDiagnosticService;
     private readonly IWhisperRuntimeSelfTestService selfTestService;
+    private readonly SubtitlePublicationService publicationService = new();
     private UserSettings settings;
     private string? deepSeekApiKey;
     private CancellationTokenSource? runCancellation;
@@ -47,6 +48,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string currentStage = "等待开始";
     private string? resultSubtitlePath;
     private string? resultOutputDirectory;
+    private string? resultProjectDirectory;
     private string? selectedModelPath;
     private string modelStatus = "尚未选择模型。";
     private bool isModelDownloading;
@@ -64,6 +66,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool isSelfTesting;
     private string validationMessage = "请先拖入或选择一个视频文件。";
     private string statusMessage = "准备就绪。";
+    private string selectedPublishLocation = "视频所在目录（推荐）";
+    private string selectedNamingStrategy = "视频名 + 语言和类型（推荐）";
+    private string selectedConflictPolicy = "覆盖前备份（推荐）";
+    private string customOutputDirectory = string.Empty;
+    private string namingTemplate = "{video-name}.{language}.{layout}.srt";
 
     public MainWindowViewModel()
     {
@@ -85,6 +92,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ? "尚未配置 DeepSeek API Key。" : "DeepSeek API Key 已加密保存（当前 Windows 用户）。";
         selectedModelPath = ResolveInitialModel(settings.WhisperModelPath);
         settings = ApplyDevelopmentFallbacks(settings, selectedModelPath);
+        selectedPublishLocation = PublishLocationName(settings.SubtitlePublishLocation);
+        selectedNamingStrategy = NamingStrategyName(settings.SubtitleNamingStrategy);
+        selectedConflictPolicy = ConflictPolicyName(settings.SubtitleConflictPolicy);
+        customOutputDirectory = settings.SubtitleCustomDirectory ?? string.Empty;
+        namingTemplate = settings.SubtitleNamingTemplate;
         modelStatus = DescribeModel(selectedModelPath);
         StartCommand = new AsyncRelayCommand(StartAsync, CanStart);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
@@ -110,6 +122,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> SpeechModels { get; } = ["Large v3 Turbo Q5（推荐）", "Small Q5（速度优先）"];
     public IReadOnlyList<string> TranslationProviders { get; } = ["DeepSeek"];
     public IReadOnlyList<string> SourceLanguages { get; } = ["自动检测", "英语", "日语", "韩语", "法语", "德语", "西班牙语", "俄语"];
+    public IReadOnlyList<string> PublishLocations { get; } = ["视频所在目录（推荐）", "自定义目录", "仅项目目录"];
+    public IReadOnlyList<string> NamingStrategies { get; } = ["视频名 + 语言和类型（推荐）", "与视频完全同名", "自定义模板"];
+    public IReadOnlyList<string> ConflictPolicies { get; } = ["覆盖前备份（推荐）", "自动编号"];
     public List<AudioTrackOption> AudioTracks { get; } = [];
     public ICommand StartCommand { get; }
     public ICommand CancelCommand { get; }
@@ -158,6 +173,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool IsSelfTesting { get => isSelfTesting; private set { Set(ref isSelfTesting, value); RefreshCommands(); } }
     public bool HasSavedApiKey => !string.IsNullOrWhiteSpace(deepSeekApiKey);
     public bool NeedsInitialSetup => environmentReport?.CanGenerateSubtitles != true || !HasSavedApiKey;
+    public string SelectedPublishLocation { get => selectedPublishLocation; set { Set(ref selectedPublishLocation, value); Notify(nameof(PublicationPreview)); } }
+    public string SelectedNamingStrategy { get => selectedNamingStrategy; set { Set(ref selectedNamingStrategy, value); Notify(nameof(PublicationPreview)); } }
+    public string SelectedConflictPolicy { get => selectedConflictPolicy; set => Set(ref selectedConflictPolicy, value); }
+    public string CustomOutputDirectory { get => customOutputDirectory; private set { Set(ref customOutputDirectory, value); Notify(nameof(PublicationPreview)); } }
+    public string NamingTemplate { get => namingTemplate; set { Set(ref namingTemplate, value); Notify(nameof(PublicationPreview)); } }
+    public string PublicationPreview => BuildPublicationPreview();
 
     public Task InitializeAsync() => RefreshEnvironmentAsync();
 
@@ -200,12 +221,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (!File.Exists(path)) { ValidationMessage = "所选文件不存在。"; return; }
         if (!SupportedExtensions.Contains(Path.GetExtension(path))) { ValidationMessage = "暂不支持此文件格式。"; return; }
         SelectedFilePath = Path.GetFullPath(path);
+        Notify(nameof(PublicationPreview));
         ValidationMessage = string.Empty;
         StatusMessage = $"已选择：{Path.GetFileName(path)}。";
         CurrentStage = "等待开始";
         OverallProgress = 0;
         ResultSubtitlePath = null;
         resultOutputDirectory = null;
+        resultProjectDirectory = null;
         RefreshCommands();
         await LoadAudioTracksAsync();
     }
@@ -280,6 +303,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await RefreshEnvironmentAsync();
     }
 
+    public async Task SelectCustomOutputDirectoryAsync(string directory)
+    {
+        CustomOutputDirectory = Path.GetFullPath(directory);
+        SelectedPublishLocation = "自定义目录";
+        await SavePublicationSettingsAsync();
+    }
+
     public async Task RemoveManagedComponentsAsync()
     {
         if (IsRunning || IsComponentInstalling) return;
@@ -352,6 +382,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IsRunning = true;
         ResultSubtitlePath = null;
         resultOutputDirectory = null;
+        resultProjectDirectory = null;
         OverallProgress = 0;
         CurrentStage = "准备任务";
         ValidationMessage = string.Empty;
@@ -364,13 +395,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         });
         try
         {
+            await SavePublicationSettingsAsync();
             var result = await generationService.GenerateAsync(request, progress, runCancellation.Token);
             var preferred = SelectedOutputMode == "仅中文字幕" ? result.ChineseSubtitle : result.BilingualSubtitle;
-            ResultSubtitlePath = preferred;
-            resultOutputDirectory = Path.GetDirectoryName(preferred);
+            var publicationRequest = new SubtitlePublicationRequest(
+                SelectedFilePath, preferred, projectDirectory, BuildPublicationOptions());
+            var publication = await publicationService.PublishAndRecordAsync(publicationRequest, runCancellation.Token);
+            resultProjectDirectory = projectDirectory;
+            ResultSubtitlePath = publication.Success ? publication.PublishedPath ?? preferred : preferred;
+            resultOutputDirectory = Path.GetDirectoryName(ResultSubtitlePath);
             CurrentStage = "处理完成";
             OverallProgress = 100;
-            StatusMessage = "字幕已经生成，可以直接打开字幕或输出文件夹。";
+            StatusMessage = publication.Message;
         }
         catch (OperationCanceledException)
         {
@@ -417,6 +453,52 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "export" => "导出", "error" => "错误", _ => "处理中"
     };
 
+    private SubtitlePublicationOptions BuildPublicationOptions() => new(
+        SelectedPublishLocation == "自定义目录" ? SubtitlePublishLocation.CustomDirectory :
+            SelectedPublishLocation == "仅项目目录" ? SubtitlePublishLocation.ProjectOnly : SubtitlePublishLocation.VideoDirectory,
+        SelectedNamingStrategy == "与视频完全同名" ? SubtitleNamingStrategy.SameAsVideo :
+            SelectedNamingStrategy == "自定义模板" ? SubtitleNamingStrategy.CustomTemplate : SubtitleNamingStrategy.VideoNameWithTags,
+        SelectedConflictPolicy == "自动编号" ? SubtitleConflictPolicy.AutoNumber : SubtitleConflictPolicy.BackupAndOverwrite,
+        string.IsNullOrWhiteSpace(CustomOutputDirectory) ? null : CustomOutputDirectory,
+        NamingTemplate,
+        "zh-CN",
+        SelectedOutputMode == "仅中文字幕" ? "chinese" : "bilingual");
+
+    public async Task SavePublicationSettingsAsync()
+    {
+        var options = BuildPublicationOptions();
+        settings = settings with
+        {
+            SubtitlePublishLocation = options.Location,
+            SubtitleNamingStrategy = options.NamingStrategy,
+            SubtitleConflictPolicy = options.ConflictPolicy,
+            SubtitleCustomDirectory = options.CustomDirectory,
+            SubtitleNamingTemplate = options.NamingTemplate
+        };
+        await settingsStore.SaveAsync(settings, CancellationToken.None);
+    }
+
+    private string BuildPublicationPreview()
+    {
+        if (SelectedFilePath is null) return "选择视频后将在这里预览最终字幕路径。";
+        var projectName = MakeSafeName(Path.GetFileNameWithoutExtension(SelectedFilePath));
+        var projectDirectory = Path.Combine(GetUserDataRoot(), "projects", projectName);
+        try
+        {
+            return publicationService.BuildTargetPath(new SubtitlePublicationRequest(
+                SelectedFilePath, Path.Combine(projectDirectory, "exports", "preview.srt"), projectDirectory,
+                BuildPublicationOptions()));
+        }
+        catch (Exception exception) { return "命名设置有误：" + exception.Message; }
+    }
+
+    private static string PublishLocationName(SubtitlePublishLocation value) => value switch
+    { SubtitlePublishLocation.CustomDirectory => "自定义目录", SubtitlePublishLocation.ProjectOnly => "仅项目目录", _ => "视频所在目录（推荐）" };
+    private static string NamingStrategyName(SubtitleNamingStrategy value) => value switch
+    { SubtitleNamingStrategy.SameAsVideo => "与视频完全同名", SubtitleNamingStrategy.CustomTemplate => "自定义模板", _ => "视频名 + 语言和类型（推荐）" };
+    private static string ConflictPolicyName(SubtitleConflictPolicy value) => value == SubtitleConflictPolicy.AutoNumber
+        ? "自动编号" : "覆盖前备份（推荐）";
+
     private static string SourceLanguageCode(string language) => language switch
     {
         "英语" => "en", "日语" => "ja", "韩语" => "ko", "法语" => "fr",
@@ -439,7 +521,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OpenSubtitle()
     {
         if (!HasResult) return;
-        new SubtitleEditorWindow(ResultSubtitlePath!, SelectedFilePath!)
+        new SubtitleEditorWindow(ResultSubtitlePath!, SelectedFilePath!, resultProjectDirectory)
         {
             Owner = System.Windows.Application.Current.MainWindow
         }.ShowDialog();

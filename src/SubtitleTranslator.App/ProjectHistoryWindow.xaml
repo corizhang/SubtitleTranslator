@@ -71,6 +71,7 @@
             <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
                 <Button Content="继续任务" Click="Resume_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0"/>
                 <Button Content="校订字幕" Click="OpenSubtitle_OnClick"/>
+                <Button Content="重新发布" Click="Republish_OnClick"/>
                 <Button Content="打开项目目录" Click="OpenFolder_OnClick"/>
                 <Button Content="清理缓存" Click="DeleteCache_OnClick"/>
                 <Button Content="删除项目" Click="DeleteProject_OnClick" Foreground="#B42318"/>

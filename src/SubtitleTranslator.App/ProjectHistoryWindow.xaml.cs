@@ -40,7 +40,24 @@ public partial class ProjectHistoryWindow : Window
                 .OrderByDescending(x => x.Contains("bilingual", StringComparison.OrdinalIgnoreCase)).FirstOrDefault()
             : null;
         if (subtitle is null) MessageBox.Show(this, "该项目尚未生成字幕。", "没有字幕", MessageBoxButton.OK, MessageBoxImage.Information);
-        else new SubtitleEditorWindow(subtitle, project.SourcePath) { Owner = this }.ShowDialog();
+        else new SubtitleEditorWindow(subtitle, project.SourcePath, project.ProjectDirectory) { Owner = this }.ShowDialog();
+    }
+
+    private async void Republish_OnClick(object sender, RoutedEventArgs e)
+    {
+        var project = RequireSelection();
+        if (project is null) return;
+        try
+        {
+            var receipt = await viewModel.Service.RepublishAsync(project, CancellationToken.None);
+            viewModel.SetMessage(receipt.Message);
+            MessageBox.Show(this, receipt.Message, receipt.Success ? "发布完成" : "发布失败", MessageBoxButton.OK,
+                receipt.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "无法重新发布", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void OpenFolder_OnClick(object sender, RoutedEventArgs e)

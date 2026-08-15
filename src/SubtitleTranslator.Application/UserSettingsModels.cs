@@ -7,7 +7,38 @@ public sealed record UserSettings(
     string? FfmpegPath = null,
     string? FfprobePath = null,
     string? WhisperRuntimePath = null,
-    string DeepSeekModel = "deepseek-v4-flash");
+    string DeepSeekModel = "deepseek-v4-flash",
+    SubtitlePublishLocation SubtitlePublishLocation = SubtitlePublishLocation.VideoDirectory,
+    SubtitleNamingStrategy SubtitleNamingStrategy = SubtitleNamingStrategy.VideoNameWithTags,
+    SubtitleConflictPolicy SubtitleConflictPolicy = SubtitleConflictPolicy.BackupAndOverwrite,
+    string? SubtitleCustomDirectory = null,
+    string SubtitleNamingTemplate = "{video-name}.{language}.{layout}.srt");
+
+public enum SubtitlePublishLocation { VideoDirectory, CustomDirectory, ProjectOnly }
+public enum SubtitleNamingStrategy { VideoNameWithTags, SameAsVideo, CustomTemplate }
+public enum SubtitleConflictPolicy { BackupAndOverwrite, AutoNumber }
+
+public sealed record SubtitlePublicationOptions(
+    SubtitlePublishLocation Location = SubtitlePublishLocation.VideoDirectory,
+    SubtitleNamingStrategy NamingStrategy = SubtitleNamingStrategy.VideoNameWithTags,
+    SubtitleConflictPolicy ConflictPolicy = SubtitleConflictPolicy.BackupAndOverwrite,
+    string? CustomDirectory = null,
+    string NamingTemplate = "{video-name}.{language}.{layout}.srt",
+    string Language = "zh-CN",
+    string Layout = "bilingual");
+
+public sealed record SubtitlePublicationRequest(
+    string MediaPath,
+    string SourceSubtitlePath,
+    string ProjectDirectory,
+    SubtitlePublicationOptions Options);
+
+public sealed record SubtitlePublicationReceipt(
+    SubtitlePublicationRequest Request,
+    bool Success,
+    string? PublishedPath,
+    string Message,
+    DateTime UpdatedUtc);
 
 public sealed record DownloadableModel(
     string Id,

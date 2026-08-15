@@ -1,11 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SubtitleTranslator.Application;
 
 namespace SubtitleTranslator.Infrastructure;
 
 public sealed class JsonUserSettingsStore(string settingsPath) : IUserSettingsStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     public async Task<UserSettings> LoadAsync(CancellationToken cancellationToken)
     {

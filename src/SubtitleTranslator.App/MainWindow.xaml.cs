@@ -57,6 +57,13 @@ public partial class MainWindow : Window
             await viewModel.SelectVideoAsync(dialog.FileName);
     }
 
+    private async void SelectOutputDirectory_OnClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = "选择字幕输出目录" };
+        if (dialog.ShowDialog(this) == true)
+            await viewModel.SelectCustomOutputDirectoryAsync(dialog.FolderName);
+    }
+
     private async void SelectModel_OnClick(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -108,5 +115,10 @@ public partial class MainWindow : Window
         e.Data.GetDataPresent(DataFormats.FileDrop) &&
         e.Data.GetData(DataFormats.FileDrop) is string[] { Length: 1 };
 
-    private void Window_OnClosing(object? sender, CancelEventArgs e) => viewModel.Cancel();
+    private void Window_OnClosing(object? sender, CancelEventArgs e)
+    {
+        viewModel.Cancel();
+        try { Task.Run(viewModel.SavePublicationSettingsAsync).GetAwaiter().GetResult(); }
+        catch (Exception exception) { AppFileLogger.Error("保存字幕发布设置失败", exception); }
+    }
 }

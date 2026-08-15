@@ -126,7 +126,13 @@ public sealed class UserSettingsAndModelDownloadTests
         try
         {
             var store = new JsonUserSettingsStore(Path.Combine(directory, "settings.json"));
-            var expected = new UserSettings(WhisperModelPath: @"D:\models\custom.bin");
+            var expected = new UserSettings(
+                WhisperModelPath: @"D:\models\custom.bin",
+                SubtitlePublishLocation: SubtitlePublishLocation.CustomDirectory,
+                SubtitleNamingStrategy: SubtitleNamingStrategy.CustomTemplate,
+                SubtitleConflictPolicy: SubtitleConflictPolicy.AutoNumber,
+                SubtitleCustomDirectory: @"D:\subtitles",
+                SubtitleNamingTemplate: "{video-name}.{language}.edited.srt");
             await store.SaveAsync(expected, CancellationToken.None);
             var actual = await store.LoadAsync(CancellationToken.None);
             Assert.Equal(expected, actual);

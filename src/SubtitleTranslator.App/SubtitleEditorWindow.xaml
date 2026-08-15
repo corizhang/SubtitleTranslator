@@ -71,6 +71,7 @@
                 <Button Content="上一问题" Click="PreviousIssue_OnClick"/>
                 <Button Content="下一问题" Click="NextIssue_OnClick"/>
                 <Button Content="另存为" Click="SaveAs_OnClick"/>
+                <Button Content="保存并发布" Click="SaveAndPublish_OnClick"/>
                 <Button Content="保存" Click="Save_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0"/>
                 <Button Content="关闭" Click="Close_OnClick"/>
             </WrapPanel>

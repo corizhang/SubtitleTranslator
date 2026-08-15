@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
+using SubtitleTranslator.Infrastructure;
 
 namespace SubtitleTranslator.App;
 
@@ -11,13 +12,15 @@ public partial class SubtitleEditorWindow : Window
     private readonly SubtitleEditorViewModel viewModel = new();
     private readonly string videoPath;
     private string subtitlePath;
+    private readonly string? projectDirectory;
     private bool allowClose;
 
-    public SubtitleEditorWindow(string subtitlePath, string videoPath)
+    public SubtitleEditorWindow(string subtitlePath, string videoPath, string? projectDirectory = null)
     {
         InitializeComponent();
         this.subtitlePath = Path.GetFullPath(subtitlePath);
         this.videoPath = videoPath;
+        this.projectDirectory = projectDirectory;
         DataContext = viewModel;
         FilePathText.Text = this.subtitlePath;
     }
@@ -39,6 +42,26 @@ public partial class SubtitleEditorWindow : Window
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); }
 
     private async void Save_OnClick(object sender, RoutedEventArgs e) => await SaveAsync(subtitlePath);
+
+    private async void SaveAndPublish_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (!await SaveAsync(subtitlePath)) return;
+        if (string.IsNullOrWhiteSpace(projectDirectory))
+        {
+            MessageBox.Show(this, "当前字幕没有关联项目发布记录，请使用“另存为”。", "无法发布", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        try
+        {
+            var receipt = await new SubtitlePublicationService().RepublishAsync(projectDirectory, subtitlePath, CancellationToken.None);
+            MessageBox.Show(this, receipt.Message, receipt.Success ? "发布完成" : "发布失败", MessageBoxButton.OK,
+                receipt.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "无法发布", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private async void SaveAs_OnClick(object sender, RoutedEventArgs e)
     {
