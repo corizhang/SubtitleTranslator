@@ -439,7 +439,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OpenSubtitle()
     {
         if (!HasResult) return;
-        Process.Start(new ProcessStartInfo(ResultSubtitlePath!) { UseShellExecute = true });
+        new SubtitleEditorWindow(ResultSubtitlePath!, SelectedFilePath!)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        }.ShowDialog();
     }
 
     private void OpenOutputFolder()

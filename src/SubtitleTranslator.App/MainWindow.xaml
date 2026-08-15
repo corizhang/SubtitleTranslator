@@ -132,7 +132,7 @@
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="打开字幕" Command="{Binding OpenSubtitleCommand}" />
+                            <Button Content="校订字幕" Command="{Binding OpenSubtitleCommand}" />
                             <Button Content="打开输出文件夹" Command="{Binding OpenOutputFolderCommand}"
                                     Background="#16803C" Foreground="White" BorderThickness="0" />
                         </StackPanel>

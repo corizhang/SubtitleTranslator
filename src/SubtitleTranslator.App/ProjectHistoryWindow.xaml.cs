@@ -40,7 +40,7 @@ public partial class ProjectHistoryWindow : Window
                 .OrderByDescending(x => x.Contains("bilingual", StringComparison.OrdinalIgnoreCase)).FirstOrDefault()
             : null;
         if (subtitle is null) MessageBox.Show(this, "该项目尚未生成字幕。", "没有字幕", MessageBoxButton.OK, MessageBoxImage.Information);
-        else Process.Start(new ProcessStartInfo(subtitle) { UseShellExecute = true });
+        else new SubtitleEditorWindow(subtitle, project.SourcePath) { Owner = this }.ShowDialog();
     }
 
     private void OpenFolder_OnClick(object sender, RoutedEventArgs e)
