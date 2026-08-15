@@ -422,6 +422,14 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 修复真实 WPF 渲染发现的只读 `OverallProgress` TwoWay 绑定，明确使用 OneWay。
 - 应用及 MSI 版本提升为 `0.6.0`；后续阶段将把项目库和批量中心从独立窗口迁为同一外壳内的页面。
 
+## 2026-08-15 0.13.1 WPF UI 控件模板恢复
+
+- 修复工作台 ComboBox 仍显示经典 WPF 外观：应用自定义的隐式 ComboBox 样式覆盖了 WPF UI `DefaultComboBoxStyle`。
+- 移除 ComboBox、TextBox、DataGrid、DataGridColumnHeader 和 DataGridCell 的全局隐式覆盖，让 `ControlsDictionary` 的 Fluent 模板直接生效。
+- 移除字幕校订窗口残留的 TextBox 隐式覆盖，防止局部窗口再次遮蔽 WPF UI 文本框模板。
+- 仅保留产品语义明确的主按钮、次按钮、导航和卡片样式；不再用无模板的隐式样式覆盖组件库控件。
+- 应用及 MSI 版本提升为 `0.13.1`。
+
 ## 2026-08-15 0.13.0 统一 Fluent 组件基础层
 
 - 保留 WPF UI 的 FluentWindow、主题字典和 SymbolIcon，新增覆盖全应用的产品级组件规范。

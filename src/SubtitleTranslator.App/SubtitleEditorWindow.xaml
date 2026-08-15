@@ -5,7 +5,6 @@
         Background="#F4F6FA" WindowStartupLocation="CenterOwner" Loaded="Window_OnLoaded" Closing="Window_OnClosing">
     <Window.Resources>
         <Style TargetType="Button"><Setter Property="Padding" Value="13,7"/><Setter Property="Margin" Value="0,0,8,0"/></Style>
-        <Style TargetType="TextBox"><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="#D0D5DD"/></Style>
     </Window.Resources>
     <Grid Margin="26">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
