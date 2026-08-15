@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Windows;
 using System.ComponentModel;
+using System.Windows.Controls;
 
 namespace SubtitleTranslator.App;
 
@@ -8,6 +9,8 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel viewModel;
     private bool startupHandled;
+    private BatchQueuePage? batchQueuePage;
+    private ProjectLibraryPage? projectLibraryPage;
 
     public MainWindow()
     {
@@ -26,7 +29,7 @@ public partial class MainWindow : Window
 
     private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
-    private void NavigateWorkbench_OnClick(object sender, RoutedEventArgs e) { }
+    private void NavigateWorkbench_OnClick(object sender, RoutedEventArgs e) => ShowPage(null, WorkbenchNavigation);
 
     private void OpenResources_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
@@ -40,19 +43,27 @@ public partial class MainWindow : Window
             MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e) =>
-        new BatchQueueWindow(viewModel) { Owner = this }.ShowDialog();
-
-    private async void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
+    private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e)
     {
-        var window = new ProjectHistoryWindow { Owner = this };
-        if (window.ShowDialog() == true && window.ResumeSourcePath is not null)
-        {
-            await viewModel.SelectVideoAsync(window.ResumeSourcePath);
-            MessageBox.Show(this,
-                "已加载原视频。点击“开始生成字幕”后，应用会复用有效缓存；若翻译缓存已清理，可能再次产生 DeepSeek API 费用。",
-                "任务已准备恢复", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
+        batchQueuePage ??= new BatchQueuePage(viewModel);
+        ShowPage(batchQueuePage, BatchNavigation);
+    }
+
+    private void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
+    {
+        projectLibraryPage ??= new ProjectLibraryPage(viewModel, () => ShowPage(null, WorkbenchNavigation));
+        ShowPage(projectLibraryPage, ProjectsNavigation);
+    }
+
+    private void ShowPage(UserControl? page, Button selectedNavigation)
+    {
+        WorkbenchPage.Visibility = page is null ? Visibility.Visible : Visibility.Collapsed;
+        PageHost.Content = page;
+        PageHost.Visibility = page is null ? Visibility.Collapsed : Visibility.Visible;
+
+        foreach (var button in new[] { WorkbenchNavigation, BatchNavigation, ProjectsNavigation })
+            button.Style = (Style)FindResource("NavigationButtonStyle");
+        selectedNavigation.Style = (Style)FindResource("SelectedNavigationButtonStyle");
     }
 
     private void ShowSetupWizard()
@@ -135,6 +146,7 @@ public partial class MainWindow : Window
     private void Window_OnClosing(object? sender, CancelEventArgs e)
     {
         viewModel.Cancel();
+        batchQueuePage?.Cancel();
         try { Task.Run(viewModel.SavePublicationSettingsAsync).GetAwaiter().GetResult(); }
         catch (Exception exception) { AppFileLogger.Error("保存字幕发布设置失败", exception); }
     }

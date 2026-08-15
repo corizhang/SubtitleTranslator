@@ -12,9 +12,9 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0"><TextBlock Text="AI 字幕翻译" Foreground="White" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="本地识别 · 智能翻译" Foreground="#8F9BB3" FontSize="10" Margin="0,3,0,0"/></StackPanel>
                 </Grid>
                 <StackPanel Grid.Row="1">
-                    <Button Style="{StaticResource SelectedNavigationButtonStyle}" Click="NavigateWorkbench_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="⌂" FontSize="18" Width="28"/><TextBlock Text="工作台" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenBatchQueue_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="☷" FontSize="17" Width="28"/><TextBlock Text="批量任务" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenProjectHistory_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="▣" FontSize="16" Width="28"/><TextBlock Text="项目库" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="WorkbenchNavigation" Style="{StaticResource SelectedNavigationButtonStyle}" Click="NavigateWorkbench_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="⌂" FontSize="18" Width="28"/><TextBlock Text="工作台" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="BatchNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenBatchQueue_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="☷" FontSize="17" Width="28"/><TextBlock Text="批量任务" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="ProjectsNavigation" Style="{StaticResource NavigationButtonStyle}" Click="OpenProjectHistory_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="▣" FontSize="16" Width="28"/><TextBlock Text="项目库" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenResources_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="◇" FontSize="18" Width="28"/><TextBlock Text="资源与模型" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button Style="{StaticResource NavigationButtonStyle}" Click="OpenSettings_OnClick"><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" FontSize="16" Width="28"/><TextBlock Text="设置" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
@@ -25,7 +25,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1">
+        <Grid x:Name="WorkbenchPage" Grid.Column="1">
             <Grid.RowDefinitions><RowDefinition Height="76"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                 <Grid Margin="30,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="工作台" Style="{StaticResource PageTitleStyle}"/><TextBlock Text="开始字幕任务，或继续最近的处理进度" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"/></StackPanel><Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#ECFDF3" CornerRadius="14" Padding="11,6"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" Margin="0,0,7,0"/><TextBlock Text="本地处理环境" Foreground="#087A4B" FontSize="12"/></StackPanel></Border></Grid>
@@ -62,5 +62,6 @@
             </ScrollViewer>
             <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="24,14"><Grid><TextBlock Text="{Binding ValidationMessage}" Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="取消" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButtonStyle}" Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}"/><Button Content="开始生成字幕" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="145" Margin="10,0,0,0"/></StackPanel></Grid></Border>
         </Grid>
+        <ContentControl x:Name="PageHost" Grid.Column="1" Visibility="Collapsed"/>
     </Grid>
 </Window>

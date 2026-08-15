@@ -1,0 +1,52 @@
+<UserControl x:Class="SubtitleTranslator.App.ProjectLibraryPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource AppBackgroundBrush}" Loaded="Page_OnLoaded">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="76"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="30,0">
+                <StackPanel VerticalAlignment="Center"><TextBlock Text="项目库" Style="{StaticResource PageTitleStyle}"/><TextBlock Text="查看历史任务、继续中断的处理，或管理项目文件" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"/></StackPanel>
+                <Button Content="刷新" Click="Refresh_OnClick" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+        <Grid Grid.Row="1" Margin="30,22,30,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="5*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
+            <Border Style="{StaticResource CardStyle}" Padding="10">
+                <ListView ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" BorderThickness="0">
+                    <ListView.ItemTemplate><DataTemplate>
+                        <Grid Margin="5,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
+                            <StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding SourcePath}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,4,8,0"/></StackPanel>
+                            <StackPanel Grid.Column="1"><TextBlock Text="{Binding Status}" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Right"/><TextBlock Text="{Binding UpdatedDisplay}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Right" Margin="0,4,0,0"/></StackPanel>
+                        </Grid>
+                    </DataTemplate></ListView.ItemTemplate>
+                </ListView>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding SelectedProject.Name, TargetNullValue=选择一个项目查看详情}" Style="{StaticResource SectionTitleStyle}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding SelectedProject.SourcePath}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,18,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock Text="{Binding SelectedProject.Status}" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold"/><ProgressBar Value="{Binding SelectedProject.ProgressPercent, Mode=OneWay}" Maximum="100" Height="7" Margin="0,8,16,0"/></StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding SelectedProject.SizeDisplay}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding SelectedProject.Stages}"><ItemsControl.ItemTemplate><DataTemplate>
+                        <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions>
+                            <StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,3,8,0"/></StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding State}" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+                    <WrapPanel Grid.Row="3" Margin="0,16,0,0">
+                        <Button Content="继续任务" Click="Resume_OnClick" Style="{StaticResource PrimaryButtonStyle}"/>
+                        <Button Content="校订字幕" Click="OpenSubtitle_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0"/>
+                        <Button Content="重新发布" Click="Republish_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0"/>
+                        <Button Content="打开目录" Click="OpenFolder_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="0,8,0,0"/>
+                        <Button Content="清理缓存" Click="DeleteCache_OnClick" Style="{StaticResource SecondaryButtonStyle}" Margin="8,8,0,0"/>
+                        <Button Content="删除项目" Click="DeleteProject_OnClick" Style="{StaticResource SecondaryButtonStyle}" Foreground="{StaticResource DangerBrush}" Margin="8,8,0,0"/>
+                    </WrapPanel>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="30,14"><TextBlock Text="{Binding Message}" Foreground="{StaticResource TextSecondaryBrush}"/></Border>
+    </Grid>
+</UserControl>
