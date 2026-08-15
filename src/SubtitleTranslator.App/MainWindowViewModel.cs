@@ -2,12 +2,14 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using SubtitleTranslator.Application;
 using SubtitleTranslator.Domain;
 using SubtitleTranslator.Orchestration;
 using SubtitleTranslator.Infrastructure;
+using SubtitleTranslator.Media;
 using SubtitleTranslator.Speech;
 
 namespace SubtitleTranslator.App;
@@ -37,6 +39,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string selectedQualityMode = "自动（推荐）";
     private string selectedSpeechModel = "Large v3 Turbo Q5（推荐）";
     private string selectedTranslationProvider = "DeepSeek";
+    private string selectedSourceLanguage = "自动检测";
+    private AudioTrackOption? selectedAudioTrack;
     private bool translationQaEnabled = true;
     private bool isRunning;
     private double overallProgress;
@@ -48,6 +52,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool isModelDownloading;
     private double modelDownloadProgress;
     private string apiKeyStatus = "尚未配置 DeepSeek API Key。";
+    private string deepSeekConnectionStatus = "保存密钥后可测试连接。";
+    private bool isTestingDeepSeek;
     private string environmentStatus = "正在检测运行组件……";
     private EnvironmentDiagnosticReport? environmentReport;
     private bool isComponentInstalling;
@@ -85,6 +91,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         DownloadModelCommand = new AsyncRelayCommand(DownloadSelectedModelAsync, () => !IsRunning && !IsModelDownloading);
         CancelModelDownloadCommand = new RelayCommand(() => modelDownloadCancellation?.Cancel(), () => IsModelDownloading);
         DeleteApiKeyCommand = new AsyncRelayCommand(DeleteApiKeyAsync, () => deepSeekApiKey is not null && !IsRunning);
+        TestDeepSeekConnectionCommand = new AsyncRelayCommand(TestDeepSeekConnectionAsync,
+            () => HasSavedApiKey && !IsRunning && !IsTestingDeepSeek);
         RefreshEnvironmentCommand = new AsyncRelayCommand(RefreshEnvironmentAsync, () => !IsRunning);
         InstallVadCommand = new AsyncRelayCommand(() => InstallComponentAsync(ComponentCatalog.Vad), CanInstallComponent);
         InstallCpuRuntimeCommand = new AsyncRelayCommand(() => InstallComponentAsync(ComponentCatalog.CpuRuntime), CanInstallComponent);
@@ -101,6 +109,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> QualityModes { get; } = ["自动（推荐）", "生成建议清单", "关闭"];
     public IReadOnlyList<string> SpeechModels { get; } = ["Large v3 Turbo Q5（推荐）", "Small Q5（速度优先）"];
     public IReadOnlyList<string> TranslationProviders { get; } = ["DeepSeek"];
+    public IReadOnlyList<string> SourceLanguages { get; } = ["自动检测", "英语", "日语", "韩语", "法语", "德语", "西班牙语", "俄语"];
+    public List<AudioTrackOption> AudioTracks { get; } = [];
     public ICommand StartCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand OpenSubtitleCommand { get; }
@@ -108,6 +118,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand DownloadModelCommand { get; }
     public ICommand CancelModelDownloadCommand { get; }
     public ICommand DeleteApiKeyCommand { get; }
+    public ICommand TestDeepSeekConnectionCommand { get; }
     public ICommand RefreshEnvironmentCommand { get; }
     public ICommand InstallVadCommand { get; }
     public ICommand InstallCpuRuntimeCommand { get; }
@@ -122,6 +133,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string SelectedQualityMode { get => selectedQualityMode; set => Set(ref selectedQualityMode, value); }
     public string SelectedSpeechModel { get => selectedSpeechModel; set { Set(ref selectedSpeechModel, value); RefreshCommands(); } }
     public string SelectedTranslationProvider { get => selectedTranslationProvider; set => Set(ref selectedTranslationProvider, value); }
+    public string SelectedSourceLanguage { get => selectedSourceLanguage; set => Set(ref selectedSourceLanguage, value); }
+    public AudioTrackOption? SelectedAudioTrack { get => selectedAudioTrack; set => Set(ref selectedAudioTrack, value); }
     public bool TranslationQaEnabled { get => translationQaEnabled; set => Set(ref translationQaEnabled, value); }
     public bool IsRunning { get => isRunning; private set { Set(ref isRunning, value); RefreshCommands(); } }
     public string ValidationMessage { get => validationMessage; private set => Set(ref validationMessage, value); }
@@ -134,6 +147,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool IsModelDownloading { get => isModelDownloading; private set { Set(ref isModelDownloading, value); RefreshCommands(); } }
     public double ModelDownloadProgress { get => modelDownloadProgress; private set => Set(ref modelDownloadProgress, value); }
     public string ApiKeyStatus { get => apiKeyStatus; private set => Set(ref apiKeyStatus, value); }
+    public string DeepSeekConnectionStatus { get => deepSeekConnectionStatus; private set => Set(ref deepSeekConnectionStatus, value); }
+    public bool IsTestingDeepSeek { get => isTestingDeepSeek; private set { Set(ref isTestingDeepSeek, value); RefreshCommands(); } }
     public string EnvironmentStatus { get => environmentStatus; private set => Set(ref environmentStatus, value); }
     public bool IsComponentInstalling { get => isComponentInstalling; private set { Set(ref isComponentInstalling, value); RefreshCommands(); } }
     public double ComponentInstallProgress { get => componentInstallProgress; private set => Set(ref componentInstallProgress, value); }
@@ -148,6 +163,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool IsComponentReady(string id) => environmentReport?.Components
         .Any(x => x.Id == id && x.State == ComponentState.Ready) == true;
+
+    public bool IsSetupStepComplete(int step) => step switch
+    {
+        0 => true,
+        1 => IsComponentReady("ffmpeg") && IsComponentReady("ffprobe"),
+        2 => IsComponentReady("whisper-runtime") && IsComponentReady("vad"),
+        3 => IsComponentReady("whisper-model"),
+        4 => HasSavedApiKey,
+        _ => false
+    };
+
+    public string SetupSummary => $"{EnvironmentStatus}\n{HardwareStatus}\n{ApiKeyStatus}";
 
     public async Task<string?> ValidateSetupStepAsync(int step)
     {
@@ -167,7 +194,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         };
     }
 
-    public void SelectVideo(string path)
+    public async Task SelectVideoAsync(string path)
     {
         if (IsRunning) return;
         if (!File.Exists(path)) { ValidationMessage = "所选文件不存在。"; return; }
@@ -180,6 +207,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ResultSubtitlePath = null;
         resultOutputDirectory = null;
         RefreshCommands();
+        await LoadAudioTracksAsync();
+    }
+
+    private async Task LoadAudioTracksAsync()
+    {
+        AudioTracks.Clear();
+        SelectedAudioTrack = null;
+        if (SelectedFilePath is null) return;
+        try
+        {
+            var ffprobe = settings.FfprobePath ?? "ffprobe";
+            var media = await new FfprobeMediaProbe(ffprobe).ProbeAsync(SelectedFilePath, CancellationToken.None);
+            foreach (var track in media.AudioTracks)
+                AudioTracks.Add(new AudioTrackOption(track.StreamIndex,
+                    $"音轨 {track.StreamIndex} · {track.Language ?? "未知语言"} · {track.Title ?? track.Codec}" +
+                    (track.IsDefault ? " · 默认" : string.Empty)));
+            SelectedAudioTrack = AudioTracks.FirstOrDefault(x =>
+                media.AudioTracks.First(t => t.StreamIndex == x.StreamIndex).IsDefault) ?? AudioTracks.FirstOrDefault();
+            Notify(nameof(AudioTracks));
+            StatusMessage = AudioTracks.Count == 0 ? "视频中没有检测到音轨。" : $"检测到 {AudioTracks.Count} 条音轨。";
+        }
+        catch (Exception exception) { StatusMessage = $"暂时无法读取音轨：{exception.Message}"; }
     }
 
     public void Cancel()
@@ -249,6 +298,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await secretStore.WriteAsync("deepseek-api-key", apiKey, CancellationToken.None);
         deepSeekApiKey = apiKey.Trim();
         ApiKeyStatus = "DeepSeek API Key 已加密保存（当前 Windows 用户）。";
+        DeepSeekConnectionStatus = "密钥已更新，请执行连接测试。";
         Notify(nameof(HasSavedApiKey));
         Notify(nameof(NeedsInitialSetup));
         RefreshCommands();
@@ -286,6 +336,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             FfmpegPath: settings.FfmpegPath,
             FfprobePath: settings.FfprobePath,
             NativeRuntimePath: settings.WhisperRuntimePath);
+        request = request with
+        {
+            SourceLanguage = SourceLanguageCode(SelectedSourceLanguage),
+            AudioStreamIndex = SelectedAudioTrack?.StreamIndex
+        };
 
         runCancellation = new CancellationTokenSource();
         IsRunning = true;
@@ -339,6 +394,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         (DownloadModelCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (CancelModelDownloadCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (DeleteApiKeyCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (TestDeepSeekConnectionCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (RefreshEnvironmentCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (InstallVadCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (InstallCpuRuntimeCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
@@ -353,6 +409,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "vad" => "检测语音", "transcribe" => "语音识别",
         "translation" => "翻译", "translation-qa" => "翻译 QA", "final-qc" => "最终质检",
         "export" => "导出", "error" => "错误", _ => "处理中"
+    };
+
+    private static string SourceLanguageCode(string language) => language switch
+    {
+        "英语" => "en", "日语" => "ja", "韩语" => "ko", "法语" => "fr",
+        "德语" => "de", "西班牙语" => "es", "俄语" => "ru", _ => "auto"
     };
 
     private static double CalculateOverallProgress(string stage, double? stagePercent)
@@ -416,9 +478,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await secretStore.DeleteAsync("deepseek-api-key", CancellationToken.None);
         deepSeekApiKey = null;
         ApiKeyStatus = "DeepSeek API Key 已删除。";
+        DeepSeekConnectionStatus = "保存密钥后可测试连接。";
         Notify(nameof(HasSavedApiKey));
         Notify(nameof(NeedsInitialSetup));
         RefreshCommands();
+    }
+
+    private async Task TestDeepSeekConnectionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(deepSeekApiKey)) return;
+        IsTestingDeepSeek = true;
+        DeepSeekConnectionStatus = "正在连接 DeepSeek……";
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.deepseek.com/models");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", deepSeekApiKey);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            DeepSeekConnectionStatus = response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.OK => "✓ DeepSeek 连接成功，API Key 有效。",
+                System.Net.HttpStatusCode.Unauthorized => "连接失败：API Key 无效或已失效（HTTP 401）。",
+                System.Net.HttpStatusCode.PaymentRequired => "API Key 有效，但账户余额不足（HTTP 402）。",
+                System.Net.HttpStatusCode.TooManyRequests => "请求过于频繁（HTTP 429），请稍后重试。",
+                >= System.Net.HttpStatusCode.InternalServerError => $"DeepSeek 服务暂时不可用（HTTP {(int)response.StatusCode}），请稍后重试。",
+                _ => $"DeepSeek 返回 HTTP {(int)response.StatusCode}，请检查账户和网络设置。"
+            };
+        }
+        catch (TaskCanceledException) { DeepSeekConnectionStatus = "连接超时，请检查网络或代理设置。"; }
+        catch (HttpRequestException exception) { DeepSeekConnectionStatus = $"无法连接 DeepSeek：{exception.Message}"; }
+        finally { IsTestingDeepSeek = false; }
     }
 
     public async Task RefreshEnvironmentAsync()
@@ -551,6 +640,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     { if (!EqualityComparer<T>.Default.Equals(field, value)) { field = value; Notify(name); } }
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+public sealed record AudioTrackOption(int StreamIndex, string DisplayName);
 
 public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) : ICommand
 {

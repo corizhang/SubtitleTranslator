@@ -88,6 +88,18 @@
                 </Grid>
 
                 <StackPanel Grid.Row="3">
+                    <Grid Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource LabelText}" Text="视频音轨" />
+                            <ComboBox ItemsSource="{Binding AudioTracks}" SelectedItem="{Binding SelectedAudioTrack}"
+                                      DisplayMemberPath="DisplayName" ToolTip="选择需要识别的对白音轨" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelText}" Text="源语言" />
+                            <ComboBox ItemsSource="{Binding SourceLanguages}" SelectedItem="{Binding SelectedSourceLanguage}" />
+                        </StackPanel>
+                    </Grid>
                     <StackPanel Orientation="Horizontal">
                         <CheckBox Content="启用选择性 AI 翻译 QA" IsChecked="{Binding TranslationQaEnabled}"
                                   VerticalAlignment="Center" Margin="0,0,28,0" />

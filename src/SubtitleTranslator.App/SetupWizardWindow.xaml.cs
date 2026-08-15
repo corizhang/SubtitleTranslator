@@ -9,6 +9,7 @@ public partial class SetupWizardWindow : Window
 {
     private readonly MainWindowViewModel viewModel;
     private readonly TextBlock[] stepLabels;
+    private static readonly string[] StepNames = ["GPU 与硬件", "FFmpeg", "Runtime 与 VAD", "Whisper 模型", "DeepSeek"];
 
     public SetupWizardWindow(MainWindowViewModel viewModel)
     {
@@ -29,6 +30,7 @@ public partial class SetupWizardWindow : Window
 
         if (WizardTabs.SelectedIndex == WizardTabs.Items.Count - 1)
         {
+            MessageBox.Show(this, viewModel.SetupSummary, "配置完成", MessageBoxButton.OK, MessageBoxImage.Information);
             DialogResult = true;
             return;
         }
@@ -82,8 +84,11 @@ public partial class SetupWizardWindow : Window
         NextButton.Content = WizardTabs.SelectedIndex == WizardTabs.Items.Count - 1 ? "完成" : "下一步";
         for (var i = 0; i < stepLabels.Length; i++)
         {
+            var completed = viewModel.IsSetupStepComplete(i);
+            stepLabels[i].Text = $"{(completed ? "✓" : (i + 1).ToString())}  {StepNames[i]}";
             stepLabels[i].Foreground = i == WizardTabs.SelectedIndex
                 ? Brushes.White
+                : completed ? new SolidColorBrush(Color.FromRgb(110, 231, 183))
                 : new SolidColorBrush(Color.FromRgb(174, 185, 208));
             stepLabels[i].FontWeight = i == WizardTabs.SelectedIndex ? FontWeights.SemiBold : FontWeights.Normal;
         }

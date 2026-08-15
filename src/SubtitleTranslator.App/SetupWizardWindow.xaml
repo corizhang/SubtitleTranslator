@@ -142,9 +142,11 @@
                                 <PasswordBox x:Name="DeepSeekApiKeyBox" Padding="10,8" Margin="0,9,0,12" />
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="加密保存" Click="SaveApiKey_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" />
+                                    <Button Content="测试连接" Command="{Binding TestDeepSeekConnectionCommand}" />
                                     <Button Content="删除已保存密钥" Command="{Binding DeleteApiKeyCommand}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource SecondaryText}" Margin="0,10,0,0" />
+                                <TextBlock Text="{Binding DeepSeekConnectionStatus}" Foreground="#315EFB" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource SecondaryText}" Text="完成后仍可从主页重新打开配置向导，更换组件、模型或密钥。" />

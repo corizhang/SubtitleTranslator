@@ -32,7 +32,7 @@ public partial class MainWindow : Window
         wizard.ShowDialog();
     }
 
-    private void SelectVideo_OnClick(object sender, RoutedEventArgs e)
+    private async void SelectVideo_OnClick(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
@@ -42,7 +42,7 @@ public partial class MainWindow : Window
         };
 
         if (dialog.ShowDialog(this) == true)
-            viewModel.SelectVideo(dialog.FileName);
+            await viewModel.SelectVideoAsync(dialog.FileName);
     }
 
     private async void SelectModel_OnClick(object sender, RoutedEventArgs e)
@@ -86,10 +86,10 @@ public partial class MainWindow : Window
     private void DropArea_OnDragEnter(object sender, DragEventArgs e) =>
         e.Effects = HasSingleFile(e) ? DragDropEffects.Copy : DragDropEffects.None;
 
-    private void DropArea_OnDrop(object sender, DragEventArgs e)
+    private async void DropArea_OnDrop(object sender, DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files)
-            viewModel.SelectVideo(files[0]);
+            await viewModel.SelectVideoAsync(files[0]);
     }
 
     private static bool HasSingleFile(DragEventArgs e) =>

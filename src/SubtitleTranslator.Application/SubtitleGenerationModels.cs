@@ -15,7 +15,8 @@ public sealed record SubtitleGenerationRequest(
     string? DeepSeekApiKey = null,
     string? FfmpegPath = null,
     string? FfprobePath = null,
-    string? NativeRuntimePath = null);
+    string? NativeRuntimePath = null,
+    int? AudioStreamIndex = null);
 
 public sealed record SubtitleGenerationResult(
     string ProjectFile,

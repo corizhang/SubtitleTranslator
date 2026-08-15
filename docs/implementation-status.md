@@ -318,6 +318,17 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 
 当前结论：首次安装后的依赖准备已有完整引导路径，同时仍保持框架依赖型轻量发布策略。后续可为各步骤增加完成标记和外部下载说明页，并补充专门的向导交互 UI 自动化测试。
 
+## 2026-08-15 Beta 发布稳定性收口
+
+- 新增应用级滚动日志，保存到 `%LocalAppData%\AI字幕翻译\logs`；捕获 WPF UI、AppDomain 和未观察后台任务异常，日志达到 2 MiB 后轮转。
+- 新增致命错误窗口，支持复制错误摘要和打开日志目录；日志对 API Key/Bearer 凭证做基础脱敏。
+- 配置向导新增 DeepSeek `/models` 免 token 连接测试，分别提示鉴权失败、余额不足、限流、服务端故障、网络失败和超时。
+- 向导左侧新增完成标记，完成最后一步后展示组件、GPU 和密钥状态汇总。
+- 视频选择后通过 FFprobe 加载所有音轨，显示语言、标题、编码和默认标记；用户可手动选择对白音轨以及自动/指定源语言。
+- 音轨索引进入实际 FFmpeg 提取参数与音频缓存键；所选音轨不存在时明确拒绝启动，避免错误复用其他音轨缓存。
+- 新增 WiX 5 轻量 MSI，包含开始菜单、桌面快捷方式和标准卸载入口；不包含 PDB、FFmpeg、VAD、Whisper runtime 或模型。
+- framework-dependent Windows x64 发布仍只依赖 .NET Desktop Runtime 10，其他依赖继续由首次配置向导检测。
+
 ## 2026-08-15 可恢复阶段状态机
 
 - 新增 `ProjectRunTracker`，每个阶段开始前原子写入 `Running`，完成后写入 `Completed` 和产物列表。

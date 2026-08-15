@@ -37,7 +37,10 @@ public sealed class InProcessSubtitleGenerationService(string workspaceRoot) : I
             (activeStage, activeKey) = (null, null);
             if (media.AudioTracks.Count == 0) throw new InvalidOperationException("视频中没有可用音轨。");
 
-            var streamIndex = media.AudioTracks.FirstOrDefault(x => x.IsDefault)?.StreamIndex ?? media.AudioTracks[0].StreamIndex;
+            var streamIndex = request.AudioStreamIndex ??
+                media.AudioTracks.FirstOrDefault(x => x.IsDefault)?.StreamIndex ?? media.AudioTracks[0].StreamIndex;
+            if (!media.AudioTracks.Any(x => x.StreamIndex == streamIndex))
+                throw new InvalidOperationException($"所选音轨 {streamIndex} 不存在，请重新选择视频音轨。");
             var audioKey = PipelineCacheKeyBuilder.Build(
                 "audio", 1, new { streamIndex, sampleRate = 16000, channels = 1, codec = "pcm_s16le" }, fingerprint.Sha256);
             (activeStage, activeKey) = await BeginAsync(tracker, "audio", audioKey, progress, cancellationToken);

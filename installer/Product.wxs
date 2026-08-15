@@ -1,0 +1,29 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="AI 字幕翻译"
+           Manufacturer="SubtitleTranslator"
+           Version="0.1.0"
+           Language="2052"
+           Scope="perMachine"
+           UpgradeCode="A7731901-8CE8-4DCB-935D-7A391E604E91">
+    <SummaryInformation Description="本地 AI 语音识别与中文字幕生成工具" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="AI 字幕翻译" />
+    </StandardDirectory>
+
+    <Component Id="MainApplication" Directory="INSTALLFOLDER">
+      <File Id="MainExecutable" Source="!(bindpath.publish)\SubtitleTranslator.App.exe" KeyPath="yes">
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="AI 字幕翻译"
+                  Description="生成中文或双语影视字幕" WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="AI 字幕翻译"
+                  Description="生成中文或双语影视字幕" WorkingDirectory="INSTALLFOLDER" />
+      </File>
+    </Component>
+
+    <Files Include="!(bindpath.publish)\**" Directory="INSTALLFOLDER">
+      <Exclude Files="!(bindpath.publish)\*.pdb" />
+      <Exclude Files="!(bindpath.publish)\SubtitleTranslator.App.exe" />
+    </Files>
+  </Package>
+</Wix>
