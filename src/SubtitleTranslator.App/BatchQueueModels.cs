@@ -50,6 +50,13 @@ public sealed class BatchQueueItemViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public BatchQueueEntry ToEntry() => new(Id, MediaPath, State, Progress, Stage, Error, SubtitlePath, UpdatedUtc);
+    public void RefreshPreflight()
+    {
+        Notify(nameof(SourceExists));
+        Notify(nameof(CanProcess));
+        Notify(nameof(PreflightDisplay));
+        Notify(nameof(FileSizeDisplay));
+    }
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     { if (!EqualityComparer<T>.Default.Equals(field, value)) { field = value; Notify(name); } }
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -79,6 +86,12 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
     public bool IsRunning { get => isRunning; private set { isRunning = value; Notify(); Notify(nameof(CanEdit)); } }
     public bool CanEdit => !IsRunning;
     public string Message { get => message; private set { message = value; Notify(); } }
+    public int TotalCount => Items.Count;
+    public int ReadyCount => Items.Count(x => x.CanProcess && x.State == BatchTaskState.Pending);
+    public int NeedsAttentionCount => Items.Count(x => !x.CanProcess || x.State is BatchTaskState.Failed or BatchTaskState.Cancelled);
+    public int CompletedCount => Items.Count(x => x.State == BatchTaskState.Completed);
+    public double QueueProgress => Items.Count == 0 ? 0 : Items.Average(x => x.Progress);
+    public string QueueProgressDisplay => $"{QueueProgress:0}%";
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public async Task LoadAsync()
@@ -114,6 +127,13 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         UpdateSummary();
     }
 
+    public async Task RerunPreflightAsync()
+    {
+        foreach (var item in Items) item.RefreshPreflight();
+        UpdateSummary();
+        await SaveAsync();
+    }
+
     public async Task StartAsync(bool retryFailed = false)
     {
         if (IsRunning) return;
@@ -141,6 +161,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
                 {
                     item.Stage = StageName(value.Stage); item.Progress = Overall(value.Stage, value.Percent);
                     main.ReportExternalTask(item.MediaPath, value);
+                    NotifyQueueSummary();
                 });
                 try
                 {
@@ -181,6 +202,16 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
     private void UpdateSummary()
     {
         Message = $"共 {Items.Count} 项：可处理 {Items.Count(x => x.CanProcess)}，需修正 {Items.Count(x => !x.CanProcess)}，处理中 {Items.Count(x => x.State == BatchTaskState.Running)}，完成 {Items.Count(x => x.State == BatchTaskState.Completed)}，失败/取消 {Items.Count(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled)}。";
+        NotifyQueueSummary();
+    }
+    private void NotifyQueueSummary()
+    {
+        Notify(nameof(TotalCount));
+        Notify(nameof(ReadyCount));
+        Notify(nameof(NeedsAttentionCount));
+        Notify(nameof(CompletedCount));
+        Notify(nameof(QueueProgress));
+        Notify(nameof(QueueProgressDisplay));
     }
     private static string StageName(string stage) => stage switch
     { "probe" => "读取媒体", "audio" => "提取音频", "transcription" or "transcribe" => "语音识别", "translation" => "翻译", "translation-qa" => "翻译 QA", "final-qc" => "最终质检", "export" => "导出字幕", _ => "处理中" };

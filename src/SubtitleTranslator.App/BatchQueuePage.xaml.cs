@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -23,6 +24,13 @@ public partial class BatchQueuePage : UserControl
         var dialog = new OpenFileDialog { Multiselect = true, Filter = "视频文件|*.mkv;*.mp4;*.avi;*.mov;*.wmv;*.webm;*.m4v|所有文件|*.*" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) await viewModel.AddFilesAsync(dialog.FileNames);
     }
+    private async void AddFolder_OnClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = "选择包含视频的文件夹", Multiselect = false };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        await viewModel.AddFilesAsync(Directory.EnumerateFiles(dialog.FolderName, "*", SearchOption.TopDirectoryOnly));
+    }
+    private async void Preflight_OnClick(object sender, RoutedEventArgs e) => await viewModel.RerunPreflightAsync();
     private async void Remove_OnClick(object sender, RoutedEventArgs e) => await viewModel.RemoveSelectedAsync();
     private async void Start_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync();
     private async void Retry_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync(true);
