@@ -71,8 +71,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         componentInstallService = new ComponentInstallService(new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
         hardwareDiagnosticService = new WindowsHardwareDiagnosticService();
         selfTestService = new WhisperRuntimeSelfTestService();
-        settings = settingsStore.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
-        deepSeekApiKey = secretStore.ReadAsync("deepseek-api-key", CancellationToken.None).GetAwaiter().GetResult();
+        // The view model is constructed on WPF's dispatcher thread. Run initial async I/O on
+        // the thread pool so an existing settings/secret file cannot deadlock the UI context.
+        settings = Task.Run(() => settingsStore.LoadAsync(CancellationToken.None)).GetAwaiter().GetResult();
+        deepSeekApiKey = Task.Run(() => secretStore.ReadAsync("deepseek-api-key", CancellationToken.None)).GetAwaiter().GetResult();
         apiKeyStatus = string.IsNullOrWhiteSpace(deepSeekApiKey)
             ? "尚未配置 DeepSeek API Key。" : "DeepSeek API Key 已加密保存（当前 Windows 用户）。";
         selectedModelPath = ResolveInitialModel(settings.WhisperModelPath);
