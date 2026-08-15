@@ -92,7 +92,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RunSelfTestCommand = new AsyncRelayCommand(RunSelfTestAsync, CanRunSelfTest);
         OpenSubtitleCommand = new RelayCommand(OpenSubtitle, () => HasResult);
         OpenOutputFolderCommand = new RelayCommand(OpenOutputFolder, () => HasResult);
-        _ = RefreshEnvironmentAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -140,6 +139,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string HardwareStatus { get => hardwareStatus; private set => Set(ref hardwareStatus, value); }
     public string SelfTestStatus { get => selfTestStatus; private set => Set(ref selfTestStatus, value); }
     public bool IsSelfTesting { get => isSelfTesting; private set { Set(ref isSelfTesting, value); RefreshCommands(); } }
+    public bool HasSavedApiKey => !string.IsNullOrWhiteSpace(deepSeekApiKey);
+    public bool NeedsInitialSetup => environmentReport?.CanGenerateSubtitles != true || !HasSavedApiKey;
+
+    public Task InitializeAsync() => RefreshEnvironmentAsync();
+
+    public bool IsComponentReady(string id) => environmentReport?.Components
+        .Any(x => x.Id == id && x.State == ComponentState.Ready) == true;
+
+    public async Task<string?> ValidateSetupStepAsync(int step)
+    {
+        await RefreshEnvironmentAsync();
+        return step switch
+        {
+            0 => null, // GPU is optional; CPU processing remains available.
+            1 when !IsComponentReady("ffmpeg") || !IsComponentReady("ffprobe")
+                => "请先选择有效的 FFmpeg；FFprobe 通常应与 ffmpeg.exe 位于同一目录。",
+            2 when !IsComponentReady("whisper-runtime") || !IsComponentReady("vad")
+                => "请先配置 Whisper 运行组件和 Silero VAD 模型。",
+            3 when !IsComponentReady("whisper-model")
+                => "请先选择或下载一个 Whisper 模型。",
+            4 when !HasSavedApiKey
+                => "请先保存 DeepSeek API Key。密钥只会加密保存在当前 Windows 用户目录。",
+            _ => null
+        };
+    }
 
     public void SelectVideo(string path)
     {
@@ -223,6 +247,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await secretStore.WriteAsync("deepseek-api-key", apiKey, CancellationToken.None);
         deepSeekApiKey = apiKey.Trim();
         ApiKeyStatus = "DeepSeek API Key 已加密保存（当前 Windows 用户）。";
+        Notify(nameof(HasSavedApiKey));
+        Notify(nameof(NeedsInitialSetup));
         RefreshCommands();
     }
 
@@ -388,10 +414,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await secretStore.DeleteAsync("deepseek-api-key", CancellationToken.None);
         deepSeekApiKey = null;
         ApiKeyStatus = "DeepSeek API Key 已删除。";
+        Notify(nameof(HasSavedApiKey));
+        Notify(nameof(NeedsInitialSetup));
         RefreshCommands();
     }
 
-    private async Task RefreshEnvironmentAsync()
+    public async Task RefreshEnvironmentAsync()
     {
         environmentReport = await environmentDiagnosticService.DiagnoseAsync(settings, CancellationToken.None);
         var hardware = await hardwareDiagnosticService.DiagnoseAsync(settings, CancellationToken.None);
@@ -408,6 +436,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var cuda = hardware.HasCudaToolkit ? $"CUDA：{hardware.CudaToolkitVersion}" : "CUDA Toolkit：未检测到";
         HardwareStatus = $"{gpu}  ·  {cuda}  ·  当前 runtime：{hardware.RuntimeKind}" +
             (hardware.Warnings.Count == 0 ? string.Empty : $"  ·  {string.Join("；", hardware.Warnings)}");
+        Notify(nameof(NeedsInitialSetup));
     }
 
     private bool CanInstallComponent() => !IsRunning && !IsModelDownloading && !IsComponentInstalling;

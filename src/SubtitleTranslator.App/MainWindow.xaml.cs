@@ -7,12 +7,29 @@ namespace SubtitleTranslator.App;
 public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel viewModel;
+    private bool startupHandled;
 
     public MainWindow()
     {
         InitializeComponent();
         viewModel = new MainWindowViewModel();
         DataContext = viewModel;
+    }
+
+    private async void Window_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (startupHandled) return;
+        startupHandled = true;
+        await viewModel.InitializeAsync();
+        if (viewModel.NeedsInitialSetup) ShowSetupWizard();
+    }
+
+    private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
+
+    private void ShowSetupWizard()
+    {
+        var wizard = new SetupWizardWindow(viewModel) { Owner = this };
+        wizard.ShowDialog();
     }
 
     private void SelectVideo_OnClick(object sender, RoutedEventArgs e)
@@ -38,12 +55,6 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog(this) == true)
             await viewModel.SelectLocalModelAsync(dialog.FileName);
-    }
-
-    private async void SaveApiKey_OnClick(object sender, RoutedEventArgs e)
-    {
-        await viewModel.SaveApiKeyAsync(DeepSeekApiKeyBox.Password);
-        DeepSeekApiKeyBox.Clear();
     }
 
     private async void SelectFfmpeg_OnClick(object sender, RoutedEventArgs e)

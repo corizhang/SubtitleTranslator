@@ -1,0 +1,165 @@
+<Window x:Class="SubtitleTranslator.App.SetupWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="首次配置向导" Width="940" Height="650" MinWidth="820" MinHeight="580"
+        Background="#F4F6FA" WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="SecondaryText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#667085" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="PageTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#172033" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Background="#18223A" Padding="26,32">
+            <StackPanel>
+                <TextBlock Text="AI 字幕翻译" Foreground="White" FontSize="21" FontWeight="SemiBold" />
+                <TextBlock Text="首次配置" Foreground="#AEB9D0" Margin="0,5,0,30" />
+                <TextBlock x:Name="StepGpu" Text="1  GPU 与硬件" Margin="0,0,0,22" />
+                <TextBlock x:Name="StepFfmpeg" Text="2  FFmpeg" Margin="0,0,0,22" />
+                <TextBlock x:Name="StepRuntime" Text="3  Runtime 与 VAD" Margin="0,0,0,22" />
+                <TextBlock x:Name="StepModel" Text="4  Whisper 模型" Margin="0,0,0,22" />
+                <TextBlock x:Name="StepDeepSeek" Text="5  DeepSeek" Margin="0,0,0,22" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Column="1" Margin="36,30,36,26">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TabControl x:Name="WizardTabs" BorderThickness="0" Background="Transparent">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <ContentPresenter ContentSource="SelectedContent" />
+                    </ControlTemplate>
+                </TabControl.Template>
+
+                <TabItem>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource PageTitle}" Text="检测 GPU 与硬件" />
+                        <TextBlock Style="{StaticResource SecondaryText}" Text="GPU 用于加速本地语音识别。没有兼容 GPU 也可以使用 CPU，只是处理时间会更长。" />
+                        <Border Background="White" CornerRadius="8" Padding="20" Margin="0,24,0,18">
+                            <StackPanel>
+                                <TextBlock Text="检测结果" FontWeight="SemiBold" Foreground="#344054" />
+                                <TextBlock Text="{Binding HardwareStatus}" Style="{StaticResource SecondaryText}" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Button Content="重新检测" Command="{Binding RefreshEnvironmentCommand}" HorizontalAlignment="Left" />
+                        <TextBlock Style="{StaticResource SecondaryText}" Margin="0,18,0,0"
+                                   Text="建议：NVIDIA GPU 优先选择 CUDA runtime；如 CUDA 自检失败，可随时切换 CPU runtime。" />
+                    </StackPanel>
+                </TabItem>
+
+                <TabItem>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource PageTitle}" Text="配置 FFmpeg" />
+                        <TextBlock Style="{StaticResource SecondaryText}" Text="FFmpeg 和 FFprobe 用于读取视频信息及提取音频。应用不会把它们打包进安装包。" />
+                        <Border Background="White" CornerRadius="8" Padding="20" Margin="0,24,0,18">
+                            <TextBlock Text="{Binding EnvironmentStatus}" Style="{StaticResource SecondaryText}" />
+                        </Border>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="选择 ffmpeg.exe" Click="SelectFfmpeg_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" />
+                            <Button Content="打开下载说明" Command="{Binding OpenFfmpegDownloadCommand}" />
+                            <Button Content="重新检测" Command="{Binding RefreshEnvironmentCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </TabItem>
+
+                <TabItem>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource PageTitle}" Text="配置 Runtime 与 VAD" />
+                            <TextBlock Style="{StaticResource SecondaryText}" Text="Whisper runtime 执行本地识别；Silero VAD 用于定位语音片段。可以选择已有文件，也可以由应用下载。" />
+                            <Border Background="White" CornerRadius="8" Padding="20" Margin="0,20,0,14">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding EnvironmentStatus}" Style="{StaticResource SecondaryText}" />
+                                    <TextBlock Text="{Binding ComponentInstallStatus}" Foreground="#315EFB" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding ComponentInstallProgress}" Height="6" Margin="0,10,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <WrapPanel Margin="0,0,0,10">
+                                <Button Content="选择 runtime 目录" Click="SelectRuntime_OnClick" />
+                                <Button Content="选择 VAD 模型" Click="SelectVad_OnClick" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <Button Content="安装 CUDA runtime" Command="{Binding InstallCudaRuntimeCommand}" Background="#315EFB" Foreground="White" BorderThickness="0" />
+                                <Button Content="安装 CPU runtime" Command="{Binding InstallCpuRuntimeCommand}" />
+                                <Button Content="下载 VAD" Command="{Binding InstallVadCommand}" />
+                                <Button Content="取消下载" Command="{Binding CancelComponentInstallCommand}" />
+                            </WrapPanel>
+                            <Separator Margin="0,18,0,14" />
+                            <TextBlock Text="{Binding SelfTestStatus}" Style="{StaticResource SecondaryText}" />
+                            <Button Content="运行本地推理自检" Command="{Binding RunSelfTestCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource PageTitle}" Text="选择 Whisper 模型" />
+                        <TextBlock Style="{StaticResource SecondaryText}" Text="模型不会包含在安装包中。可以复用已有 GGML 模型，或下载推荐版本。" />
+                        <ComboBox ItemsSource="{Binding SpeechModels}" SelectedItem="{Binding SelectedSpeechModel}" Padding="10,7" Margin="0,22,0,12" HorizontalAlignment="Left" MinWidth="300" />
+                        <Border Background="White" CornerRadius="8" Padding="20" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="{Binding ModelStatus}" Style="{StaticResource SecondaryText}" />
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ModelDownloadProgress}" Height="6" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="选择本地模型" Click="SelectModel_OnClick" />
+                            <Button Content="下载所选模型" Command="{Binding DownloadModelCommand}" Background="#315EFB" Foreground="White" BorderThickness="0" />
+                            <Button Content="取消下载" Command="{Binding CancelModelDownloadCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </TabItem>
+
+                <TabItem>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource PageTitle}" Text="连接 DeepSeek" />
+                        <TextBlock Style="{StaticResource SecondaryText}" Text="DeepSeek 用于将识别结果翻译为中文。API Key 将通过 Windows DPAPI 加密保存，不写入项目或明文配置文件。" />
+                        <Border Background="White" CornerRadius="8" Padding="20" Margin="0,24,0,18">
+                            <StackPanel>
+                                <TextBlock Text="API Key" Foreground="#344054" FontWeight="SemiBold" />
+                                <PasswordBox x:Name="DeepSeekApiKeyBox" Padding="10,8" Margin="0,9,0,12" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="加密保存" Click="SaveApiKey_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" />
+                                    <Button Content="删除已保存密钥" Command="{Binding DeleteApiKeyCommand}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource SecondaryText}" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Style="{StaticResource SecondaryText}" Text="完成后仍可从主页重新打开配置向导，更换组件、模型或密钥。" />
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
+
+            <TextBlock x:Name="ErrorText" Grid.Row="1" Foreground="#C53929" TextWrapping="Wrap" Margin="0,12,0,12" />
+            <Grid Grid.Row="2">
+                <Button Content="稍后配置" Click="Skip_OnClick" HorizontalAlignment="Left" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="PreviousButton" Content="上一步" Click="Previous_OnClick" />
+                    <Button x:Name="NextButton" Content="下一步" Click="Next_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" MinWidth="110" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
