@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -31,6 +32,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly IHardwareDiagnosticService hardwareDiagnosticService;
     private readonly IWhisperRuntimeSelfTestService selfTestService;
     private readonly SubtitlePublicationService publicationService = new();
+    private readonly ProjectHistoryService projectHistoryService = new();
     private UserSettings settings;
     private string? deepSeekApiKey;
     private CancellationTokenSource? runCancellation;
@@ -128,6 +130,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> NamingStrategies { get; } = ["视频名 + 语言和类型（推荐）", "与视频完全同名", "自定义模板"];
     public IReadOnlyList<string> ConflictPolicies { get; } = ["覆盖前备份（推荐）", "自动编号"];
     public List<AudioTrackOption> AudioTracks { get; } = [];
+    public ObservableCollection<ProjectHistoryItem> RecentProjects { get; } = [];
+    public bool HasRecentProjects => RecentProjects.Count > 0;
     public ICommand StartCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand OpenSubtitleCommand { get; }
@@ -182,7 +186,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string NamingTemplate { get => namingTemplate; set { Set(ref namingTemplate, value); Notify(nameof(PublicationPreview)); } }
     public string PublicationPreview => BuildPublicationPreview();
 
-    public Task InitializeAsync() => RefreshEnvironmentAsync();
+    public async Task InitializeAsync()
+    {
+        await RefreshEnvironmentAsync();
+        await RefreshRecentProjectsAsync();
+    }
+
+    public async Task RefreshRecentProjectsAsync()
+    {
+        RecentProjects.Clear();
+        foreach (var project in (await projectHistoryService.LoadAsync(CancellationToken.None)).Take(5))
+            RecentProjects.Add(project);
+        Notify(nameof(HasRecentProjects));
+    }
 
     public bool IsComponentReady(string id) => environmentReport?.Components
         .Any(x => x.Id == id && x.State == ComponentState.Ready) == true;
@@ -462,6 +478,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             runCancellation.Dispose();
             runCancellation = null;
             IsRunning = false;
+            await RefreshRecentProjectsAsync();
         }
     }
 

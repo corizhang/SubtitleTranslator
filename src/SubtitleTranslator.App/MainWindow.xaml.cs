@@ -29,7 +29,11 @@ public partial class MainWindow : Window
 
     private void OpenSetupWizard_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
-    private void NavigateWorkbench_OnClick(object sender, RoutedEventArgs e) => ShowPage(null, WorkbenchNavigation);
+    private async void NavigateWorkbench_OnClick(object sender, RoutedEventArgs e)
+    {
+        await viewModel.RefreshRecentProjectsAsync();
+        ShowPage(null, WorkbenchNavigation);
+    }
 
     private void OpenResources_OnClick(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
@@ -53,6 +57,18 @@ public partial class MainWindow : Window
     {
         projectLibraryPage ??= new ProjectLibraryPage(viewModel, () => ShowPage(null, WorkbenchNavigation));
         ShowPage(projectLibraryPage, ProjectsNavigation);
+    }
+
+    private async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ProjectHistoryItem project }) return;
+        if (!project.SourceExists)
+        {
+            MessageBox.Show(this, "原视频已经移动或删除，请把视频放回原路径后再继续。", "无法继续", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        await viewModel.SelectVideoAsync(project.SourcePath);
+        ShowPage(null, WorkbenchNavigation);
     }
 
     private void ShowPage(UserControl? page, Button selectedNavigation)
