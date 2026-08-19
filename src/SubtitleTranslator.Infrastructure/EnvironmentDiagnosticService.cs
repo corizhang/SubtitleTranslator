@@ -1,4 +1,5 @@
 using SubtitleTranslator.Application;
+using System.Reflection.PortableExecutable;
 
 namespace SubtitleTranslator.Infrastructure;
 
@@ -30,11 +31,15 @@ public sealed class EnvironmentDiagnosticService : IEnvironmentDiagnosticService
         var missing = new[] { "libvlc.dll", "libvlccore.dll", "plugins" }
             .Where(name => name == "plugins" ? !Directory.Exists(Path.Combine(directory, name)) : !File.Exists(Path.Combine(directory, name)))
             .ToArray();
-        return missing.Length == 0
-            ? new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Ready,
-                "已检测到完整的 LibVLC 运行时。", Path.GetFullPath(directory))
-            : new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Invalid,
+        if (missing.Length > 0)
+            return new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Invalid,
                 $"目录缺少 {string.Join("、", missing)}。", Path.GetFullPath(directory));
+        if (!IsAmd64Library(Path.Combine(directory, "libvlc.dll")))
+            return new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Invalid,
+                "检测到 32 位或无效的 VLC。当前应用为 x64，请安装 64 位 VLC（目录通常位于 Program Files，而不是 Program Files (x86)）。",
+                Path.GetFullPath(directory));
+        return new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Ready,
+            "已检测到完整的 64 位 LibVLC 运行时。", Path.GetFullPath(directory));
     }
 
     private static string? ResolveVlcDirectory(string? configured)
@@ -42,8 +47,27 @@ public sealed class EnvironmentDiagnosticService : IEnvironmentDiagnosticService
         var candidates = new List<string?> { configured };
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         if (!string.IsNullOrWhiteSpace(programFiles)) candidates.Add(Path.Combine(programFiles, "VideoLAN", "VLC"));
-        return candidates.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => Path.GetFullPath(x!))
-            .FirstOrDefault(x => File.Exists(Path.Combine(x, "libvlc.dll")));
+        var existing = candidates.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => Path.GetFullPath(x!))
+            .Where(x => File.Exists(Path.Combine(x, "libvlc.dll"))).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return existing.FirstOrDefault(x => IsCompleteVlcDirectory(x) && IsAmd64Library(Path.Combine(x, "libvlc.dll")))
+            ?? existing.FirstOrDefault();
+    }
+
+    private static bool IsCompleteVlcDirectory(string directory) =>
+        File.Exists(Path.Combine(directory, "libvlc.dll")) &&
+        File.Exists(Path.Combine(directory, "libvlccore.dll")) &&
+        Directory.Exists(Path.Combine(directory, "plugins"));
+
+    private static bool IsAmd64Library(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            using var reader = new PEReader(stream);
+            return reader.PEHeaders.CoffHeader.Machine == Machine.Amd64;
+        }
+        catch (BadImageFormatException) { return false; }
+        catch (IOException) { return false; }
     }
 
     private static ComponentDiagnostic FileComponent(string id, string name, string? path, string missing) =>

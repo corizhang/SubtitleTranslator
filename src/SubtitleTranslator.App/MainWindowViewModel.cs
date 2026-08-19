@@ -421,6 +421,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         settings = settings with { VlcRuntimePath = Path.GetFullPath(directory) };
         await settingsStore.SaveAsync(settings, CancellationToken.None);
         await RefreshEnvironmentAsync();
+        if (environmentReport?.Components.FirstOrDefault(x => x.Id == "vlc-runtime") is { State: not ComponentState.Ready } vlc)
+            EnvironmentStatus = $"VLC 播放引擎不可用：{vlc.Message}";
     }
 
     public async Task SelectCustomOutputDirectoryAsync(string directory)

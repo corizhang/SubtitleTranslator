@@ -97,7 +97,10 @@ public sealed class UserSettingsAndModelDownloadTests
                 new UserSettings(VlcRuntimePath: directory), CancellationToken.None);
             Assert.Equal(ComponentState.Invalid, report.Components.Single(x => x.Id == "vlc-runtime").State);
 
-            await File.WriteAllTextAsync(Path.Combine(directory, "libvlccore.dll"), "test");
+            if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem) return;
+            var amd64Library = Path.Combine(Environment.SystemDirectory, "version.dll");
+            File.Copy(amd64Library, Path.Combine(directory, "libvlc.dll"), true);
+            File.Copy(amd64Library, Path.Combine(directory, "libvlccore.dll"), true);
             Directory.CreateDirectory(Path.Combine(directory, "plugins"));
             report = await new EnvironmentDiagnosticService().DiagnoseAsync(
                 new UserSettings(VlcRuntimePath: directory), CancellationToken.None);
