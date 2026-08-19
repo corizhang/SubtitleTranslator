@@ -78,7 +78,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ShowSubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory)
     {
-        var editor = new SubtitleEditorPage(subtitlePath, videoPath, projectDirectory,
+        var editor = new SubtitleEditorPage(subtitlePath, videoPath, projectDirectory, viewModel.VlcRuntimePath,
             () => ShowPage(projectLibraryPage, ProjectsNavigation));
         ShowPage(editor, ProjectsNavigation);
     }

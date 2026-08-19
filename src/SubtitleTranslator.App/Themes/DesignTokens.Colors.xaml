@@ -31,6 +31,7 @@
     <SolidColorBrush x:Key="Brush.Surface.Info" Color="#EEF3FF"/>
     <SolidColorBrush x:Key="Brush.Surface.Danger" Color="#FFF4ED"/>
     <SolidColorBrush x:Key="Brush.Surface.Video" Color="#0B101A"/>
+    <SolidColorBrush x:Key="Brush.Surface.VideoOverlay" Color="#99000000"/>
     <SolidColorBrush x:Key="Brush.Surface.Sidebar" Color="#151D31"/>
     <SolidColorBrush x:Key="Brush.Surface.SidebarHover" Color="#22304E"/>
     <SolidColorBrush x:Key="Brush.Surface.SidebarSelected" Color="#29437F"/>

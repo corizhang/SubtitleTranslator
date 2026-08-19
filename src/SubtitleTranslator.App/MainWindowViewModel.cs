@@ -123,6 +123,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         InstallCudaRuntimeCommand = new AsyncRelayCommand(() => InstallComponentAsync(ComponentCatalog.CudaRuntime), CanInstallComponent);
         CancelComponentInstallCommand = new RelayCommand(() => componentInstallCancellation?.Cancel(), () => IsComponentInstalling);
         OpenFfmpegDownloadCommand = new RelayCommand(OpenFfmpegDownloadPage);
+        OpenVlcDownloadCommand = new RelayCommand(OpenVlcDownloadPage);
         RunSelfTestCommand = new AsyncRelayCommand(RunSelfTestAsync, CanRunSelfTest);
         OpenSubtitleCommand = new RelayCommand(OpenSubtitle, () => HasResult);
         OpenOutputFolderCommand = new RelayCommand(OpenOutputFolder, () => HasResult);
@@ -154,6 +155,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand InstallCudaRuntimeCommand { get; }
     public ICommand CancelComponentInstallCommand { get; }
     public ICommand OpenFfmpegDownloadCommand { get; }
+    public ICommand OpenVlcDownloadCommand { get; }
     public ICommand RunSelfTestCommand { get; }
 
     public string? SelectedFilePath { get => selectedFilePath; private set { selectedFilePath = value; Notify(); Notify(nameof(SelectedFileDisplay)); Notify(nameof(HasSelectedFile)); Notify(nameof(HasActiveWorkbenchTask)); } }
@@ -198,6 +200,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string ResourceReadinessDisplay => AreResourcesReady ? "字幕处理环境已就绪" : $"已就绪 {ReadyResourceCount}/{TotalResourceCount}，仍有资源需要处理";
     public string FfmpegStatus => ComponentStatus("ffmpeg", "ffprobe");
     public string FfmpegPathDisplay => ComponentPath("ffmpeg");
+    public string VlcStatus => ComponentStatus("vlc-runtime");
+    public string VlcRuntimePathDisplay => ComponentPath("vlc-runtime");
+    public string? VlcRuntimePath => environmentReport?.Components.FirstOrDefault(x => x.Id == "vlc-runtime" && x.State == ComponentState.Ready)?.ResolvedPath;
     public string RuntimeStatus => ComponentStatus("whisper-runtime");
     public string RuntimePathDisplay => settings.WhisperRuntimePath ?? "尚未选择 runtime 目录";
     public string VadStatus => ComponentStatus("vad");
@@ -399,6 +404,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (!File.Exists(Path.Combine(directory, "whisper.dll")))
         { EnvironmentStatus = "所选目录中没有 whisper.dll。"; return; }
         settings = settings with { WhisperRuntimePath = Path.GetFullPath(directory) };
+        await settingsStore.SaveAsync(settings, CancellationToken.None);
+        await RefreshEnvironmentAsync();
+    }
+
+    public async Task SelectVlcRuntimeAsync(string directory)
+    {
+        var missing = new[] { "libvlc.dll", "libvlccore.dll", "plugins" }
+            .Where(name => name == "plugins" ? !Directory.Exists(Path.Combine(directory, name)) : !File.Exists(Path.Combine(directory, name)))
+            .ToArray();
+        if (missing.Length > 0)
+        {
+            EnvironmentStatus = $"所选 VLC 目录不完整，缺少：{string.Join("、", missing)}。";
+            return;
+        }
+        settings = settings with { VlcRuntimePath = Path.GetFullPath(directory) };
         await settingsStore.SaveAsync(settings, CancellationToken.None);
         await RefreshEnvironmentAsync();
     }
@@ -801,7 +821,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             FfprobePath = environmentReport.Components.First(x => x.Id == "ffprobe").ResolvedPath
         };
         EnvironmentStatus = string.Join("  ·  ", environmentReport.Components.Select(x =>
-            x.State == ComponentState.Ready ? $"✓ {x.DisplayName}" : $"需处理 {x.DisplayName}：{x.Message}"));
+            x.State == ComponentState.Ready ? $"✓ {x.DisplayName}" : x.State == ComponentState.Optional
+                ? $"可选 {x.DisplayName}：{x.Message}" : $"需处理 {x.DisplayName}：{x.Message}"));
         var gpu = hardware.HasNvidiaGpu
             ? $"GPU：{hardware.GpuName}，驱动 {hardware.DriverVersion}，计算能力 {hardware.ComputeCapability}"
             : "未检测到 NVIDIA GPU";
@@ -827,6 +848,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         Notify(nameof(ReadyResourceCount)); Notify(nameof(AreResourcesReady)); Notify(nameof(ResourceReadinessDisplay));
         Notify(nameof(FfmpegStatus)); Notify(nameof(FfmpegPathDisplay)); Notify(nameof(RuntimeStatus));
+        Notify(nameof(VlcStatus)); Notify(nameof(VlcRuntimePathDisplay)); Notify(nameof(VlcRuntimePath));
         Notify(nameof(RuntimePathDisplay)); Notify(nameof(VadStatus)); Notify(nameof(VadPathDisplay));
         Notify(nameof(WhisperModelStatus)); Notify(nameof(WhisperModelPathDisplay));
     }
@@ -867,6 +889,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private static void OpenFfmpegDownloadPage() => Process.Start(new ProcessStartInfo(
         "https://ffmpeg.org/download.html#build-windows") { UseShellExecute = true });
+
+    private static void OpenVlcDownloadPage() => Process.Start(new ProcessStartInfo(
+        "https://www.videolan.org/vlc/download-windows.html") { UseShellExecute = true });
 
     private bool CanRunSelfTest() => !IsRunning && !IsComponentInstalling && !IsSelfTesting &&
         selectedModelPath is not null && settings.WhisperRuntimePath is not null;

@@ -7,6 +7,7 @@ public sealed record UserSettings(
     string? FfmpegPath = null,
     string? FfprobePath = null,
     string? WhisperRuntimePath = null,
+    string? VlcRuntimePath = null,
     string DeepSeekModel = "deepseek-v4-flash",
     SubtitlePublishLocation SubtitlePublishLocation = SubtitlePublishLocation.VideoDirectory,
     SubtitleNamingStrategy SubtitleNamingStrategy = SubtitleNamingStrategy.VideoNameWithTags,

@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
+using LibVLCSharp.Shared;
+using VlcMedia = LibVLCSharp.Shared.Media;
 using SubtitleTranslator.Infrastructure;
 using SubtitleTranslator.Subtitles;
 
@@ -15,17 +17,27 @@ public partial class SubtitleEditorPage : UserControl
     private readonly string videoPath;
     private readonly string subtitlePath;
     private readonly string? projectDirectory;
+    private readonly string? vlcRuntimePath;
     private readonly Action goBack;
     private readonly DispatcherTimer timer;
     private bool mediaAvailable;
     private bool playing;
+    private LibVLC? libVlc;
+    private MediaPlayer? vlcPlayer;
+    private VlcMedia? vlcMedia;
+    private bool usingVlc;
+    private long pendingVlcSeek = -1;
 
     public SubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory, Action goBack)
+        : this(subtitlePath, videoPath, projectDirectory, null, goBack) { }
+
+    public SubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory, string? vlcRuntimePath, Action goBack)
     {
         InitializeComponent();
         this.subtitlePath = Path.GetFullPath(subtitlePath);
         this.videoPath = videoPath;
         this.projectDirectory = projectDirectory;
+        this.vlcRuntimePath = vlcRuntimePath;
         this.goBack = goBack;
         DataContext = viewModel;
         ProjectTitleText.Text = Path.GetFileNameWithoutExtension(videoPath);
@@ -40,13 +52,20 @@ public partial class SubtitleEditorPage : UserControl
         {
             await viewModel.LoadAsync(subtitlePath);
             UpdateFilterButtons();
-            if (File.Exists(videoPath)) VideoPlayer.Source = new Uri(videoPath);
-            else ShowPlayerFallback("原视频已经移动或删除");
+            if (!File.Exists(videoPath)) ShowPlayerFallback("原视频已经移动或删除");
+            else if (!TryInitializeVlc()) InitializeSystemPlayer();
         }
         catch (Exception exception) { ShowPlayerFallback(exception.Message); }
     }
 
-    private void Page_OnUnloaded(object sender, RoutedEventArgs e) { timer.Stop(); VideoPlayer.Stop(); VideoPlayer.Close(); }
+    private void Page_OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        timer.Stop();
+        VideoPlayer.Stop(); VideoPlayer.Close();
+        VlcVideoView.MediaPlayer = null;
+        vlcPlayer?.Stop(); vlcMedia?.Dispose(); vlcPlayer?.Dispose(); libVlc?.Dispose();
+        vlcMedia = null; vlcPlayer = null; libVlc = null;
+    }
     private void Back_OnClick(object sender, RoutedEventArgs e)
     {
         if (viewModel.IsDirty && MessageBox.Show(
@@ -69,12 +88,88 @@ public partial class SubtitleEditorPage : UserControl
         SeekToSelectedCue();
     }
     private void MediaFailed_OnHandler(object sender, ExceptionRoutedEventArgs e) => ShowPlayerFallback("内置预览不支持当前视频编码，请使用外部播放器");
-    private void ShowPlayerFallback(string message) { mediaAvailable = false; VideoPlayer.Visibility = Visibility.Collapsed; PlayerFallback.Visibility = Visibility.Visible; PlayerFallbackText.Text = message; }
+    private bool TryInitializeVlc()
+    {
+        if (string.IsNullOrWhiteSpace(vlcRuntimePath)) return false;
+        try
+        {
+            Core.Initialize(vlcRuntimePath);
+            libVlc = new LibVLC(enableDebugLogs: false);
+            vlcPlayer = new MediaPlayer(libVlc);
+            vlcMedia = new VlcMedia(libVlc, new Uri(videoPath));
+            vlcPlayer.Media = vlcMedia;
+            vlcPlayer.LengthChanged += (_, e) => Dispatcher.InvokeAsync(() =>
+            {
+                PlaybackSlider.Maximum = Math.Max(0, e.Length);
+                PlaybackDurationText.Text = TimeSpan.FromMilliseconds(e.Length).ToString("hh\\:mm\\:ss");
+            });
+            vlcPlayer.Playing += (_, _) => Dispatcher.InvokeAsync(() =>
+            {
+                if (pendingVlcSeek >= 0) { vlcPlayer.Time = pendingVlcSeek; pendingVlcSeek = -1; }
+            });
+            vlcPlayer.EncounteredError += (_, _) => Dispatcher.InvokeAsync(FallbackFromVlc);
+            vlcPlayer.EndReached += (_, _) => Dispatcher.InvokeAsync(() => SetPlaying(false));
+            VlcVideoView.MediaPlayer = vlcPlayer;
+            usingVlc = true; mediaAvailable = true;
+            VideoPlayer.Visibility = Visibility.Collapsed;
+            SystemSubtitleOverlay.Visibility = Visibility.Collapsed;
+            VlcVideoView.Visibility = Visibility.Visible;
+            PlayerFallback.Visibility = Visibility.Collapsed;
+            PlaybackEngineText.Text = "VLC 内嵌播放器";
+            SeekToSelectedCue();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            AppFileLogger.Error("VLC 播放引擎初始化失败，回退到系统播放器。", exception);
+            VlcVideoView.MediaPlayer = null;
+            vlcMedia?.Dispose(); vlcPlayer?.Dispose(); libVlc?.Dispose();
+            vlcMedia = null; vlcPlayer = null; libVlc = null; usingVlc = false;
+            return false;
+        }
+    }
+    private void InitializeSystemPlayer()
+    {
+        usingVlc = false; mediaAvailable = false;
+        VlcVideoView.Visibility = Visibility.Collapsed;
+        SystemSubtitleOverlay.Visibility = Visibility.Visible;
+        VideoPlayer.Visibility = Visibility.Visible;
+        PlayerFallback.Visibility = Visibility.Visible;
+        PlayerFallbackText.Text = "正在使用系统播放器打开视频……";
+        PlaybackEngineText.Text = "系统播放器";
+        VideoPlayer.Source = new Uri(videoPath);
+    }
+    private void FallbackFromVlc()
+    {
+        if (!usingVlc) return;
+        AppFileLogger.Info("VLC 无法播放当前媒体，回退到系统播放器。");
+        timer.Stop(); SetPlaying(false);
+        VlcVideoView.MediaPlayer = null;
+        vlcPlayer?.Stop(); vlcMedia?.Dispose(); vlcPlayer?.Dispose(); libVlc?.Dispose();
+        vlcMedia = null; vlcPlayer = null; libVlc = null;
+        InitializeSystemPlayer();
+    }
+    private void ShowPlayerFallback(string message)
+    {
+        mediaAvailable = false; usingVlc = false;
+        VideoPlayer.Visibility = Visibility.Collapsed; VlcVideoView.Visibility = Visibility.Collapsed;
+        SystemSubtitleOverlay.Visibility = Visibility.Collapsed;
+        PlayerFallback.Visibility = Visibility.Visible; PlayerFallbackText.Text = message;
+        PlaybackEngineText.Text = "无法内嵌播放";
+    }
     private void Play_OnClick(object sender, RoutedEventArgs e)
     {
         if (!mediaAvailable) { OpenVideo(); return; }
-        if (playing) { VideoPlayer.Pause(); timer.Stop(); } else { VideoPlayer.Play(); timer.Start(); }
-        playing = !playing; PlayButton.Content = playing ? "暂停" : "播放";
+        if (playing)
+        {
+            if (usingVlc) vlcPlayer?.Pause(); else VideoPlayer.Pause();
+            timer.Stop(); SetPlaying(false);
+        }
+        else
+        {
+            if (usingVlc) vlcPlayer?.Play(); else VideoPlayer.Play();
+            timer.Start(); SetPlaying(true);
+        }
     }
     private void OpenExternal_OnClick(object sender, RoutedEventArgs e) => OpenVideo();
     private void OpenVideo() { if (File.Exists(videoPath)) Process.Start(new ProcessStartInfo(videoPath) { UseShellExecute = true }); }
@@ -83,13 +178,23 @@ public partial class SubtitleEditorPage : UserControl
     {
         if (viewModel.SelectedCue is null) return;
         if (mediaAvailable && SrtDocumentService.TryParseTimestamp(viewModel.SelectedCue.StartText, out var start))
-        { VideoPlayer.Position = start; UpdatePlaybackPosition(); }
+        {
+            if (usingVlc && vlcPlayer is not null)
+            {
+                if (vlcPlayer.IsPlaying) vlcPlayer.Time = (long)start.TotalMilliseconds;
+                else pendingVlcSeek = (long)start.TotalMilliseconds;
+            }
+            else VideoPlayer.Position = start;
+            UpdatePlaybackPosition();
+        }
     }
     private void UpdatePlaybackPosition()
     {
-        PlaybackSlider.Value = VideoPlayer.Position.TotalMilliseconds;
-        PlaybackTimeText.Text = $"{VideoPlayer.Position:hh\\:mm\\:ss\\.fff}";
+        var position = usingVlc ? TimeSpan.FromMilliseconds(Math.Max(0, vlcPlayer?.Time ?? 0)) : VideoPlayer.Position;
+        PlaybackSlider.Value = Math.Clamp(position.TotalMilliseconds, PlaybackSlider.Minimum, PlaybackSlider.Maximum);
+        PlaybackTimeText.Text = $"{position:hh\\:mm\\:ss\\.fff}";
     }
+    private void SetPlaying(bool value) { playing = value; PlayButton.Content = value ? "暂停" : "播放"; }
     private void PreviousIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(-1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void Filter_OnClick(object sender, RoutedEventArgs e)

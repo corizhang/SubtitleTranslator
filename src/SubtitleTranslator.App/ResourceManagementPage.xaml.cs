@@ -36,6 +36,11 @@ public partial class ResourceManagementPage : UserControl
         var dialog = new OpenFolderDialog { Title = "选择包含 whisper.dll 的 runtime 目录" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) await viewModel.SelectRuntimeAsync(dialog.FolderName);
     }
+    private async void SelectVlc_OnClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = "选择 64 位 VLC 安装目录（包含 libvlc.dll）" };
+        if (dialog.ShowDialog(Window.GetWindow(this)) == true) await viewModel.SelectVlcRuntimeAsync(dialog.FolderName);
+    }
     private async void SelectVad_OnClick(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Title = "选择 Silero VAD 模型", Filter = "VAD 模型|*.bin|所有文件|*.*" };

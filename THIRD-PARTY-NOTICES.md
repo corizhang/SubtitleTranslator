@@ -15,3 +15,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 WPF UI incorporates MIT-licensed portions of VirtualizingWrapPanel (Copyright 2019 S. Bäumlisberger), Fluent UI System Icons (Copyright 2020 Microsoft Corporation), .NET WPF (Copyright .NET Foundation and Contributors), and Microsoft UI XAML (Copyright Microsoft Corporation). Fluent icon font assets may be used to design, develop, and test programs running on Microsoft platforms and may not be separately redistributed or sublicensed.
 
 Upstream notices: https://github.com/lepoco/wpfui/blob/main/ThirdPartyNotices.txt
+
+## LibVLCSharp 3.10.1
+
+Copyright (c) VideoLAN and LibVLCSharp contributors.
+
+LibVLCSharp is licensed under LGPL-2.1-or-later. This application distributes only the managed
+LibVLCSharp integration. The native LibVLC runtime is optional and is selected or installed by
+the user after application installation.
+
+Project and license: https://code.videolan.org/videolan/LibVLCSharp

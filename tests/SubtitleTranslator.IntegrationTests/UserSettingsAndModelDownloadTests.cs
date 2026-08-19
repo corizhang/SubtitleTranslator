@@ -75,10 +75,33 @@ public sealed class UserSettingsAndModelDownloadTests
                 WhisperRuntimePath: directory);
             var report = await new EnvironmentDiagnosticService().DiagnoseAsync(settings, CancellationToken.None);
             Assert.True(report.CanGenerateSubtitles);
-            Assert.All(report.Components, item => Assert.Equal(ComponentState.Ready, item.State));
+            Assert.All(report.Components.Where(item => item.Id != "vlc-runtime"),
+                item => Assert.Equal(ComponentState.Ready, item.State));
+            Assert.Contains(report.Components, item => item.Id == "vlc-runtime");
             File.Delete(Path.Combine(directory, "whisper.dll"));
             report = await new EnvironmentDiagnosticService().DiagnoseAsync(settings, CancellationToken.None);
             Assert.False(report.CanGenerateSubtitles);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task Environment_diagnostics_validate_optional_vlc_runtime_without_blocking_generation()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"subtitle-vlc-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(Path.Combine(directory, "libvlc.dll"), "test");
+            var report = await new EnvironmentDiagnosticService().DiagnoseAsync(
+                new UserSettings(VlcRuntimePath: directory), CancellationToken.None);
+            Assert.Equal(ComponentState.Invalid, report.Components.Single(x => x.Id == "vlc-runtime").State);
+
+            await File.WriteAllTextAsync(Path.Combine(directory, "libvlccore.dll"), "test");
+            Directory.CreateDirectory(Path.Combine(directory, "plugins"));
+            report = await new EnvironmentDiagnosticService().DiagnoseAsync(
+                new UserSettings(VlcRuntimePath: directory), CancellationToken.None);
+            Assert.Equal(ComponentState.Ready, report.Components.Single(x => x.Id == "vlc-runtime").State);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

@@ -15,9 +15,35 @@ public sealed class EnvironmentDiagnosticService : IEnvironmentDiagnosticService
             FileComponent("ffprobe", "FFprobe", ffprobe, "请选择 FFprobe，通常与 FFmpeg 位于同一目录。"),
             FileComponent("whisper-model", "Whisper 模型", settings.WhisperModelPath, "请选择本地模型或下载推荐模型。"),
             VadComponent(settings.VadModelPath),
-            RuntimeComponent(settings.WhisperRuntimePath)
+            RuntimeComponent(settings.WhisperRuntimePath),
+            VlcComponent(ResolveVlcDirectory(settings.VlcRuntimePath))
         };
         return Task.FromResult(new EnvironmentDiagnosticReport(items));
+    }
+
+    private static ComponentDiagnostic VlcComponent(string? directory)
+    {
+        if (directory is null)
+            return new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Optional,
+                "未检测到 64 位 VLC；字幕校订仍可使用系统播放器或外部播放器。");
+
+        var missing = new[] { "libvlc.dll", "libvlccore.dll", "plugins" }
+            .Where(name => name == "plugins" ? !Directory.Exists(Path.Combine(directory, name)) : !File.Exists(Path.Combine(directory, name)))
+            .ToArray();
+        return missing.Length == 0
+            ? new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Ready,
+                "已检测到完整的 LibVLC 运行时。", Path.GetFullPath(directory))
+            : new ComponentDiagnostic("vlc-runtime", "VLC 播放引擎", ComponentState.Invalid,
+                $"目录缺少 {string.Join("、", missing)}。", Path.GetFullPath(directory));
+    }
+
+    private static string? ResolveVlcDirectory(string? configured)
+    {
+        var candidates = new List<string?> { configured };
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (!string.IsNullOrWhiteSpace(programFiles)) candidates.Add(Path.Combine(programFiles, "VideoLAN", "VLC"));
+        return candidates.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => Path.GetFullPath(x!))
+            .FirstOrDefault(x => File.Exists(Path.Combine(x, "libvlc.dll")));
     }
 
     private static ComponentDiagnostic FileComponent(string id, string name, string? path, string missing) =>
