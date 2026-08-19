@@ -46,6 +46,23 @@ public sealed class DpiLayoutRegressionTests
         });
     }
 
+    [Fact]
+    public void SubtitleEditor_FindsCueForPlaybackPosition_AndHonorsGaps()
+    {
+        RunOnSta(() =>
+        {
+            var viewModel = new SubtitleEditorViewModel();
+            var first = new EditableSubtitleCue(1, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "first");
+            var second = new EditableSubtitleCue(2, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(4), "second");
+            viewModel.Cues.Add(first); viewModel.Cues.Add(second);
+
+            Assert.Same(first, viewModel.FindCueAt(TimeSpan.FromSeconds(1.5)));
+            Assert.Null(viewModel.FindCueAt(TimeSpan.FromSeconds(2.5)));
+            Assert.Same(second, viewModel.FindCueAt(TimeSpan.FromSeconds(3)));
+            Assert.Null(viewModel.FindCueAt(TimeSpan.FromSeconds(4)));
+        });
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? failure = null;

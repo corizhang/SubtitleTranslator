@@ -200,6 +200,17 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
         SelectedCue = Cues.FirstOrDefault(x => x.Number == target.CueNumber);
     }
 
+    public EditableSubtitleCue? FindCueAt(TimeSpan position)
+    {
+        foreach (var cue in Cues)
+        {
+            if (!cue.TryToCue(out var parsed)) continue;
+            if (parsed.Start <= position && position < parsed.End) return cue;
+            if (parsed.Start > position) break;
+        }
+        return null;
+    }
+
     private bool MatchesFilter(object value)
     {
         if (value is not EditableSubtitleCue cue) return false;

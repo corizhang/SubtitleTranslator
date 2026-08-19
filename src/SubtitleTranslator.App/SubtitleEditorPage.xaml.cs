@@ -27,6 +27,7 @@ public partial class SubtitleEditorPage : UserControl
     private VlcMedia? vlcMedia;
     private bool usingVlc;
     private long pendingVlcSeek = -1;
+    private bool syncingCueFromPlayback;
 
     public SubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory, Action goBack)
         : this(subtitlePath, videoPath, projectDirectory, null, goBack) { }
@@ -94,9 +95,11 @@ public partial class SubtitleEditorPage : UserControl
         try
         {
             Core.Initialize(vlcRuntimePath);
-            libVlc = new LibVLC(enableDebugLogs: false);
+            libVlc = new LibVLC(false, "--no-sub-autodetect-file", "--sub-track=-1");
             vlcPlayer = new MediaPlayer(libVlc);
             vlcMedia = new VlcMedia(libVlc, new Uri(videoPath));
+            vlcMedia.AddOption(":no-sub-autodetect-file");
+            vlcMedia.AddOption(":sub-track=-1");
             vlcPlayer.Media = vlcMedia;
             vlcPlayer.LengthChanged += (_, e) => Dispatcher.InvokeAsync(() =>
             {
@@ -105,6 +108,7 @@ public partial class SubtitleEditorPage : UserControl
             });
             vlcPlayer.Playing += (_, _) => Dispatcher.InvokeAsync(() =>
             {
+                vlcPlayer.SetSpu(-1);
                 if (pendingVlcSeek >= 0) { vlcPlayer.Time = pendingVlcSeek; pendingVlcSeek = -1; }
             });
             vlcPlayer.EncounteredError += (_, _) => Dispatcher.InvokeAsync(FallbackFromVlc);
@@ -173,7 +177,10 @@ public partial class SubtitleEditorPage : UserControl
     }
     private void OpenExternal_OnClick(object sender, RoutedEventArgs e) => OpenVideo();
     private void OpenVideo() { if (File.Exists(videoPath)) Process.Start(new ProcessStartInfo(videoPath) { UseShellExecute = true }); }
-    private void CueGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e) => SeekToSelectedCue();
+    private void CueGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!syncingCueFromPlayback) SeekToSelectedCue();
+    }
     private void SeekToSelectedCue()
     {
         if (viewModel.SelectedCue is null) return;
@@ -190,11 +197,35 @@ public partial class SubtitleEditorPage : UserControl
     }
     private void UpdatePlaybackPosition()
     {
+        if (usingVlc && vlcPlayer is { Spu: not -1 }) vlcPlayer.SetSpu(-1);
         var position = usingVlc ? TimeSpan.FromMilliseconds(Math.Max(0, vlcPlayer?.Time ?? 0)) : VideoPlayer.Position;
         PlaybackSlider.Value = Math.Clamp(position.TotalMilliseconds, PlaybackSlider.Minimum, PlaybackSlider.Maximum);
         PlaybackTimeText.Text = $"{position:hh\\:mm\\:ss\\.fff}";
+        if (playing) SyncCueToPlayback(position);
     }
-    private void SetPlaying(bool value) { playing = value; PlayButton.Content = value ? "暂停" : "播放"; }
+    private void SyncCueToPlayback(TimeSpan position)
+    {
+        var cue = viewModel.FindCueAt(position);
+        VlcSubtitleOverlay.Visibility = usingVlc && cue is not null ? Visibility.Visible : Visibility.Collapsed;
+        SystemSubtitleOverlay.Visibility = !usingVlc && cue is not null ? Visibility.Visible : Visibility.Collapsed;
+        if (cue is null || ReferenceEquals(cue, viewModel.SelectedCue)) return;
+        syncingCueFromPlayback = true;
+        try
+        {
+            viewModel.SelectedCue = cue;
+            CueGrid.ScrollIntoView(cue);
+        }
+        finally { syncingCueFromPlayback = false; }
+    }
+    private void SetPlaying(bool value)
+    {
+        playing = value; PlayButton.Content = value ? "暂停" : "播放";
+        if (!value)
+        {
+            VlcSubtitleOverlay.Visibility = usingVlc ? Visibility.Visible : Visibility.Collapsed;
+            SystemSubtitleOverlay.Visibility = usingVlc ? Visibility.Collapsed : Visibility.Visible;
+        }
+    }
     private void PreviousIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(-1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void Filter_OnClick(object sender, RoutedEventArgs e)
