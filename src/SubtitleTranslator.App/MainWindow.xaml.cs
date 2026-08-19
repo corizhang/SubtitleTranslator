@@ -191,6 +191,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void Window_OnClosing(object? sender, CancelEventArgs e)
     {
+        // InitializeComponent can fail before the view model is assigned. Keep shutdown safe
+        // so the original XAML error remains the only failure in the log.
+        if (viewModel is null) return;
         viewModel.Cancel();
         batchQueuePage?.Cancel();
         try { Task.Run(viewModel.SavePublicationSettingsAsync).GetAwaiter().GetResult(); }

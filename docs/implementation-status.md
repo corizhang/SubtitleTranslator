@@ -540,3 +540,8 @@ dotnet run --project tools/SubtitleTranslator.Benchmark -- --help
 - 主框架和字幕校订中心完成第一批迁移，包括侧栏、页头、栏位宽度、视频尺寸、筛选徽标、输入控件、状态色和底部操作栏。
 - 新增 `docs/design-token-system.md`，规定资源分层、命名、使用边界和后续迁移顺序。
 - 应用及 MSI 版本提升为 `0.19.0`。
+## 2026-08-19 0.19.1 布局 Token 运行时修复
+
+- 修复应用启动时 `ColumnDefinition.Width` 抛出 `XamlParseException`：网格行列尺寸 Token 从 `Double` 改为 WPF 所需的 `GridLength`。
+- 增强主窗口部分初始化失败时的关闭保护，避免二次空引用异常遮蔽原始 XAML 错误。
+- 发布回归新增日志增量检查，不再仅以进程仍在运行判断启动成功。

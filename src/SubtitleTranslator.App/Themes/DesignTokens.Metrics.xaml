@@ -25,13 +25,14 @@
     <sys:Double x:Key="Size.Control.Compact">32</sys:Double>
     <sys:Double x:Key="Size.Control.Default">38</sys:Double>
     <sys:Double x:Key="Size.IconButton.Default">38</sys:Double>
-    <sys:Double x:Key="Size.Header.Page">76</sys:Double>
-    <sys:Double x:Key="Size.Footer.Action">64</sys:Double>
-    <sys:Double x:Key="Size.Sidebar.Width">220</sys:Double>
-    <sys:Double x:Key="Size.Editor.ListPane">370</sys:Double>
-    <sys:Double x:Key="Size.Editor.InspectorPane">330</sys:Double>
+    <!-- Grid definitions require GridLength resources; Double cannot be assigned at runtime. -->
+    <GridLength x:Key="Size.Header.Page">76</GridLength>
+    <GridLength x:Key="Size.Footer.Action">64</GridLength>
+    <GridLength x:Key="Size.Sidebar.Width">220</GridLength>
+    <GridLength x:Key="Size.Editor.ListPane">370</GridLength>
+    <GridLength x:Key="Size.Editor.InspectorPane">330</GridLength>
     <sys:Double x:Key="Size.Editor.VideoMaxHeight">640</sys:Double>
 
-    <StaticResource x:Key="ControlCornerRadius" ResourceKey="Radius.Control"/>
-    <StaticResource x:Key="CardCornerRadius" ResourceKey="Radius.Card"/>
+    <CornerRadius x:Key="ControlCornerRadius">7</CornerRadius>
+    <CornerRadius x:Key="CardCornerRadius">11</CornerRadius>
 </ResourceDictionary>

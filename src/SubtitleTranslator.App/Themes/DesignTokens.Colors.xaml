@@ -53,14 +53,14 @@
     <SolidColorBrush x:Key="Brush.Status.DangerText" Color="#D92D20"/>
 
     <!-- Compatibility aliases; new work should use semantic keys above. -->
-    <StaticResource x:Key="AppBackgroundBrush" ResourceKey="Brush.Surface.App"/>
-    <StaticResource x:Key="SidebarBrush" ResourceKey="Brush.Surface.Sidebar"/>
-    <StaticResource x:Key="PrimaryBrush" ResourceKey="Brush.Brand.Default"/>
-    <StaticResource x:Key="PrimaryHoverBrush" ResourceKey="Brush.Brand.Hover"/>
-    <StaticResource x:Key="TextPrimaryBrush" ResourceKey="Brush.Text.Primary"/>
-    <StaticResource x:Key="TextSecondaryBrush" ResourceKey="Brush.Text.Secondary"/>
-    <StaticResource x:Key="BorderBrush" ResourceKey="Brush.Border.Default"/>
-    <StaticResource x:Key="SuccessBrush" ResourceKey="Brush.Status.Success"/>
-    <StaticResource x:Key="WarningBrush" ResourceKey="Brush.Status.Warning"/>
-    <StaticResource x:Key="DangerBrush" ResourceKey="Brush.Status.Danger"/>
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="#151D31"/>
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Palette.Brand.500}"/>
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource Palette.Brand.600}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource Palette.Neutral.900}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource Palette.Neutral.500}"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Palette.Neutral.200}"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Palette.Success.600}"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Palette.Danger.600}"/>
 </ResourceDictionary>
