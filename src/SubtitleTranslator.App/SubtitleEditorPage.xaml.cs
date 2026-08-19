@@ -38,6 +38,7 @@ public partial class SubtitleEditorPage : UserControl
         try
         {
             await viewModel.LoadAsync(subtitlePath);
+            UpdateFilterButtons();
             if (File.Exists(videoPath)) VideoPlayer.Source = new Uri(videoPath);
             else ShowPlayerFallback("原视频已经移动或删除");
         }
@@ -92,7 +93,34 @@ public partial class SubtitleEditorPage : UserControl
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void Filter_OnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: string filter }) viewModel.IssueFilter = filter;
+        if (sender is Button { Tag: string filter })
+        {
+            viewModel.IssueFilter = filter;
+            UpdateFilterButtons();
+        }
+    }
+    private void UpdateFilterButtons()
+    {
+        var buttons = new[] { AllFilterButton, ErrorFilterButton, SuggestionFilterButton, ModifiedFilterButton };
+        foreach (var button in buttons)
+        {
+            button.ClearValue(Control.BackgroundProperty);
+            button.ClearValue(Control.ForegroundProperty);
+        }
+        var selected = buttons.First(x => Equals(x.Tag, viewModel.IssueFilter));
+        selected.Background = (System.Windows.Media.Brush)FindResource("PrimaryBrush");
+        selected.Foreground = System.Windows.Media.Brushes.White;
+    }
+    private void PreviousCue_OnClick(object sender, RoutedEventArgs e) => SelectAdjacentCue(-1);
+    private void NextCue_OnClick(object sender, RoutedEventArgs e) => SelectAdjacentCue(1);
+    private void SelectAdjacentCue(int direction)
+    {
+        if (viewModel.SelectedCue is null || viewModel.Cues.Count == 0) return;
+        var index = viewModel.Cues.IndexOf(viewModel.SelectedCue);
+        index = Math.Clamp(index + direction, 0, viewModel.Cues.Count - 1);
+        viewModel.SelectedCue = viewModel.Cues[index];
+        CueGrid.ScrollIntoView(viewModel.SelectedCue);
+        SeekToSelectedCue();
     }
     private void CenterWorkspace_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {

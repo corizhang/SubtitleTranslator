@@ -122,6 +122,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     public int ErrorCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Error);
     public int WarningCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Warning);
     public int IssueCueCount => Cues.Count(x => x.HasIssue);
+    public int ModifiedCount => Cues.Count(x => x.IsModified);
     public bool HasIssues => Issues.Count > 0;
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -136,6 +137,11 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
             {
                 if (args.PropertyName is nameof(EditableSubtitleCue.StartText) or nameof(EditableSubtitleCue.EndText) or nameof(EditableSubtitleCue.Text))
                     IsDirty = true;
+                if (args.PropertyName == nameof(EditableSubtitleCue.IsModified))
+                {
+                    Notify(nameof(ModifiedCount));
+                    if (IssueFilter == "已修改") RefreshFilter();
+                }
             };
             Cues.Add(row);
         }
@@ -219,7 +225,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     private void NotifySummary()
     {
         Notify(nameof(TotalCueCount)); Notify(nameof(ErrorCount)); Notify(nameof(WarningCount));
-        Notify(nameof(IssueCueCount)); Notify(nameof(HasIssues));
+        Notify(nameof(IssueCueCount)); Notify(nameof(ModifiedCount)); Notify(nameof(HasIssues));
     }
 
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
