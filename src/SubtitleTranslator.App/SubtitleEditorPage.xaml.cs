@@ -59,7 +59,11 @@ public partial class SubtitleEditorPage : UserControl
     private void MediaOpened_OnHandler(object sender, RoutedEventArgs e)
     {
         mediaAvailable = true; PlayerFallback.Visibility = Visibility.Collapsed; VideoPlayer.Visibility = Visibility.Visible;
-        if (VideoPlayer.NaturalDuration.HasTimeSpan) PlaybackSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalMilliseconds;
+        if (VideoPlayer.NaturalDuration.HasTimeSpan)
+        {
+            PlaybackSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalMilliseconds;
+            PlaybackDurationText.Text = $"{VideoPlayer.NaturalDuration.TimeSpan:hh\\:mm\\:ss}";
+        }
         SeekToSelectedCue();
     }
     private void MediaFailed_OnHandler(object sender, ExceptionRoutedEventArgs e) => ShowPlayerFallback("内置预览不支持当前视频编码，请使用外部播放器");
@@ -86,6 +90,15 @@ public partial class SubtitleEditorPage : UserControl
     }
     private void PreviousIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(-1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
+    private void Filter_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string filter }) viewModel.IssueFilter = filter;
+    }
+    private void CenterWorkspace_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var availableHeight = Math.Max(260, e.NewSize.Height - 200);
+        VideoFrame.Height = Math.Min(640, Math.Min(e.NewSize.Width * 9d / 16d, availableHeight));
+    }
     private void Validate_OnClick(object sender, RoutedEventArgs e) => viewModel.Validate();
     private void NudgeStart_OnClick(object sender, RoutedEventArgs e) => Nudge(true, sender is Button { Tag: string value } ? int.Parse(value) : 0);
     private void NudgeEnd_OnClick(object sender, RoutedEventArgs e) => Nudge(false, sender is Button { Tag: string value } ? int.Parse(value) : 0);
