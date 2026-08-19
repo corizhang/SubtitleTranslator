@@ -10,13 +10,15 @@ public partial class ProjectLibraryPage : UserControl
     private readonly ProjectHistoryViewModel viewModel = new();
     private readonly MainWindowViewModel mainViewModel;
     private readonly Action showWorkbench;
+    private readonly Action<string, string, string?> showSubtitleEditor;
     private bool loaded;
 
-    public ProjectLibraryPage(MainWindowViewModel mainViewModel, Action showWorkbench)
+    public ProjectLibraryPage(MainWindowViewModel mainViewModel, Action showWorkbench, Action<string, string, string?> showSubtitleEditor)
     {
         InitializeComponent();
         this.mainViewModel = mainViewModel;
         this.showWorkbench = showWorkbench;
+        this.showSubtitleEditor = showSubtitleEditor;
         DataContext = viewModel;
     }
 
@@ -48,7 +50,7 @@ public partial class ProjectLibraryPage : UserControl
         if (project is null) return;
         var subtitle = Directory.Exists(project.ProjectDirectory) ? Directory.EnumerateFiles(project.ProjectDirectory, "*.srt", SearchOption.AllDirectories).OrderByDescending(x => x.Contains("bilingual", StringComparison.OrdinalIgnoreCase)).FirstOrDefault() : null;
         if (subtitle is null) MessageBox.Show(Window.GetWindow(this), "该项目尚未生成字幕。", "没有字幕", MessageBoxButton.OK, MessageBoxImage.Information);
-        else new SubtitleEditorWindow(subtitle, project.SourcePath, project.ProjectDirectory) { Owner = Window.GetWindow(this) }.ShowDialog();
+        else showSubtitleEditor(subtitle, project.SourcePath, project.ProjectDirectory);
     }
 
     private async void Republish_OnClick(object sender, RoutedEventArgs e)

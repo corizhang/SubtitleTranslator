@@ -72,8 +72,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
     {
-        projectLibraryPage ??= new ProjectLibraryPage(viewModel, () => ShowPage(null, WorkbenchNavigation));
+        projectLibraryPage ??= new ProjectLibraryPage(viewModel, () => ShowPage(null, WorkbenchNavigation), ShowSubtitleEditorPage);
         ShowPage(projectLibraryPage, ProjectsNavigation);
+    }
+
+    private void ShowSubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory)
+    {
+        var editor = new SubtitleEditorPage(subtitlePath, videoPath, projectDirectory,
+            () => ShowPage(projectLibraryPage, ProjectsNavigation));
+        ShowPage(editor, ProjectsNavigation);
     }
 
     private async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)

@@ -25,6 +25,16 @@ public sealed class EditableSubtitleCue : INotifyPropertyChanged
     public string StartText { get => startText; set => Set(ref startText, value); }
     public string EndText { get => endText; set => Set(ref endText, value); }
     public string Text { get => text; set => Set(ref text, value); }
+    public string OriginalText
+    {
+        get { var lines = SplitLines(); return lines.Length > 1 ? lines[0] : string.Empty; }
+        set { var lines = SplitLines(); Text = string.IsNullOrEmpty(TranslationText) ? value : value + Environment.NewLine + TranslationText; }
+    }
+    public string TranslationText
+    {
+        get { var lines = SplitLines(); return lines.Length > 1 ? string.Join(Environment.NewLine, lines.Skip(1)) : Text; }
+        set { var original = OriginalText; Text = string.IsNullOrEmpty(original) ? value : original + Environment.NewLine + value; }
+    }
     public string Preview => Text.Replace('\r', ' ').Replace('\n', ' ');
     public string IssueSummary { get => issueSummary; set => Set(ref issueSummary, value); }
     public bool HasIssue => !string.IsNullOrEmpty(IssueSummary);
@@ -52,7 +62,12 @@ public sealed class EditableSubtitleCue : INotifyPropertyChanged
             IsModified = true;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsModified)));
         }
-        if (name == nameof(Text)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+        if (name == nameof(Text))
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OriginalText)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationText)));
+        }
     }
 
     public void SetIssues(IEnumerable<SubtitleCueIssue> issues)
@@ -73,6 +88,8 @@ public sealed class EditableSubtitleCue : INotifyPropertyChanged
         IsModified = false;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsModified)));
     }
+
+    private string[] SplitLines() => (Text ?? string.Empty).Replace("\r\n", "\n").Split('\n');
 }
 
 public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
@@ -82,6 +99,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     private string status = "正在读取字幕……";
     private bool isDirty;
     private string issueFilter = "全部字幕";
+    private string searchText = string.Empty;
 
     public SubtitleEditorViewModel()
     {
@@ -99,6 +117,7 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
     public bool IsDirty { get => isDirty; private set { isDirty = value; Notify(); Notify(nameof(DirtyStateDisplay)); } }
     public string DirtyStateDisplay => IsDirty ? "有未保存修改" : "所有修改已保存";
     public string IssueFilter { get => issueFilter; set { if (issueFilter == value) return; issueFilter = value; Notify(); RefreshFilter(); } }
+    public string SearchText { get => searchText; set { if (searchText == value) return; searchText = value; Notify(); RefreshFilter(); } }
     public int TotalCueCount => Cues.Count;
     public int ErrorCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Error);
     public int WarningCount => Issues.Count(x => x.Severity == SubtitleIssueSeverity.Warning);
@@ -175,14 +194,20 @@ public sealed class SubtitleEditorViewModel : INotifyPropertyChanged
         SelectedCue = Cues.FirstOrDefault(x => x.Number == target.CueNumber);
     }
 
-    private bool MatchesFilter(object value) => value is EditableSubtitleCue cue && IssueFilter switch
+    private bool MatchesFilter(object value)
     {
-        "仅问题" => cue.HasIssue,
-        "仅错误" => cue.HasError,
-        "仅提示" => cue.HasWarning,
-        "已修改" => cue.IsModified,
-        _ => true
-    };
+        if (value is not EditableSubtitleCue cue) return false;
+        var matchesText = string.IsNullOrWhiteSpace(SearchText) || cue.Text.Contains(SearchText, StringComparison.OrdinalIgnoreCase) || cue.Number.ToString().Contains(SearchText, StringComparison.Ordinal);
+        var matchesIssue = IssueFilter switch
+        {
+            "仅问题" => cue.HasIssue,
+            "仅错误" => cue.HasError,
+            "仅提示" => cue.HasWarning,
+            "已修改" => cue.IsModified,
+            _ => true
+        };
+        return matchesText && matchesIssue;
+    }
 
     private void RefreshFilter()
     {
