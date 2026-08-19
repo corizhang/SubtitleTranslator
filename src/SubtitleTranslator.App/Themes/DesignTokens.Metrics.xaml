@@ -35,6 +35,4 @@
     <GridLength x:Key="Size.Inspector.Default">320</GridLength>
     <sys:Double x:Key="Size.Editor.VideoMaxHeight">640</sys:Double>
 
-    <CornerRadius x:Key="ControlCornerRadius">7</CornerRadius>
-    <CornerRadius x:Key="CardCornerRadius">11</CornerRadius>
 </ResourceDictionary>

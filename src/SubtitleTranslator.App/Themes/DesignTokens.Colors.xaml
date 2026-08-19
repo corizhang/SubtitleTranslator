@@ -34,6 +34,8 @@
     <SolidColorBrush x:Key="Brush.Surface.Sidebar" Color="#151D31"/>
     <SolidColorBrush x:Key="Brush.Surface.SidebarHover" Color="#22304E"/>
     <SolidColorBrush x:Key="Brush.Surface.SidebarSelected" Color="#29437F"/>
+    <SolidColorBrush x:Key="Brush.Surface.SidebarFocus" Color="#223A70"/>
+    <SolidColorBrush x:Key="Brush.Surface.SidebarPanel" Color="#1E2942"/>
     <SolidColorBrush x:Key="Brush.Brand.Default" Color="{StaticResource Palette.Brand.500}"/>
     <SolidColorBrush x:Key="Brush.Brand.Hover" Color="{StaticResource Palette.Brand.600}"/>
     <SolidColorBrush x:Key="Brush.Text.Primary" Color="{StaticResource Palette.Neutral.900}"/>
@@ -41,8 +43,17 @@
     <SolidColorBrush x:Key="Brush.Text.Tertiary" Color="{StaticResource Palette.Neutral.400}"/>
     <SolidColorBrush x:Key="Brush.Text.OnBrand" Color="{StaticResource Palette.Neutral.0}"/>
     <SolidColorBrush x:Key="Brush.Text.OnDark" Color="{StaticResource Palette.Neutral.0}"/>
+    <SolidColorBrush x:Key="Brush.Text.Sidebar" Color="#D7DDEC"/>
+    <SolidColorBrush x:Key="Brush.Text.SidebarMuted" Color="#8F9BB3"/>
     <SolidColorBrush x:Key="Brush.Border.Default" Color="{StaticResource Palette.Neutral.200}"/>
     <SolidColorBrush x:Key="Brush.Border.Strong" Color="{StaticResource Palette.Neutral.300}"/>
+    <SolidColorBrush x:Key="Brush.Border.Focus" Color="#A9B8FF"/>
+    <SolidColorBrush x:Key="Brush.Border.BrandHover" Color="#9AACFF"/>
+    <SolidColorBrush x:Key="Brush.Border.Info" Color="#B9C7FF"/>
+    <SolidColorBrush x:Key="Brush.Border.Success" Color="#B7E7D1"/>
+    <SolidColorBrush x:Key="Brush.Border.Warning" Color="{StaticResource Palette.Warning.200}"/>
+    <SolidColorBrush x:Key="Brush.Track.Default" Color="#DCE3F0"/>
+    <SolidColorBrush x:Key="Brush.Brand.PressedSubtle" Color="#E9EEFF"/>
     <SolidColorBrush x:Key="Brush.Status.Success" Color="{StaticResource Palette.Success.600}"/>
     <SolidColorBrush x:Key="Brush.Status.SuccessTextStrong" Color="#176B47"/>
     <SolidColorBrush x:Key="Brush.Status.SuccessIcon" Color="#2A9D68"/>
@@ -58,15 +69,4 @@
     <SolidColorBrush x:Key="Brush.Status.DangerText" Color="#D92D20"/>
     <SolidColorBrush x:Key="Brush.Icon.Neutral" Color="#8091B2"/>
 
-    <!-- Compatibility aliases; new work should use semantic keys above. -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>
-    <SolidColorBrush x:Key="SidebarBrush" Color="#151D31"/>
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Palette.Brand.500}"/>
-    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource Palette.Brand.600}"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource Palette.Neutral.900}"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource Palette.Neutral.500}"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Palette.Neutral.200}"/>
-    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Palette.Success.600}"/>
-    <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B"/>
-    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Palette.Danger.600}"/>
 </ResourceDictionary>

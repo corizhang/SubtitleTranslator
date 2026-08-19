@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using SubtitleTranslator.Infrastructure;
 using SubtitleTranslator.Subtitles;
@@ -93,7 +94,7 @@ public partial class SubtitleEditorPage : UserControl
     private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
     private void Filter_OnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: string filter })
+        if (sender is ToggleButton { Tag: string filter })
         {
             viewModel.IssueFilter = filter;
             UpdateFilterButtons();
@@ -102,14 +103,7 @@ public partial class SubtitleEditorPage : UserControl
     private void UpdateFilterButtons()
     {
         var buttons = new[] { AllFilterButton, ErrorFilterButton, SuggestionFilterButton, ModifiedFilterButton };
-        foreach (var button in buttons)
-        {
-            button.ClearValue(Control.BackgroundProperty);
-            button.ClearValue(Control.ForegroundProperty);
-        }
-        var selected = buttons.First(x => Equals(x.Tag, viewModel.IssueFilter));
-        selected.Background = (System.Windows.Media.Brush)FindResource("PrimaryBrush");
-        selected.Foreground = System.Windows.Media.Brushes.White;
+        foreach (var button in buttons) button.IsChecked = Equals(button.Tag, viewModel.IssueFilter);
     }
     private void PreviousCue_OnClick(object sender, RoutedEventArgs e) => SelectAdjacentCue(-1);
     private void NextCue_OnClick(object sender, RoutedEventArgs e) => SelectAdjacentCue(1);

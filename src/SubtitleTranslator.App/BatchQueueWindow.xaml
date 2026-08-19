@@ -1,16 +1,16 @@
 <Window x:Class="SubtitleTranslator.App.BatchQueueWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="批量任务中心" Width="1080" Height="700" MinWidth="900" MinHeight="560" Background="#F4F6FA"
+        Title="批量任务中心" Width="1080" Height="700" MinWidth="900" MinHeight="560" Background="{StaticResource Brush.Surface.App}"
         WindowStartupLocation="CenterOwner" Loaded="Window_OnLoaded" Closing="Window_OnClosing" AllowDrop="True" DragEnter="Window_OnDragEnter" Drop="Window_OnDrop">
     <Window.Resources><Style TargetType="Button"><Setter Property="Padding" Value="14,8"/><Setter Property="Margin" Value="0,0,8,0"/></Style></Window.Resources>
     <Grid Margin="28">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid>
-            <StackPanel><TextBlock Text="多视频批量任务" FontSize="27" FontWeight="SemiBold" Foreground="#172033"/><TextBlock Text="按当前主页设置顺序处理；每个视频拥有独立项目、缓存和发布结果" Foreground="#667085" Margin="0,5,0,0"/></StackPanel>
+            <StackPanel><TextBlock Text="多视频批量任务" FontSize="27" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/><TextBlock Text="按当前主页设置顺序处理；每个视频拥有独立项目、缓存和发布结果" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,5,0,0"/></StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Button Content="添加视频" Click="Add_OnClick"/><Button Content="移除选中" Click="Remove_OnClick" IsEnabled="{Binding CanEdit}"/>
             </StackPanel>
         </Grid>
-        <Border Grid.Row="1" Background="#EEF4FF" CornerRadius="6" Padding="12" Margin="0,18,0,12"><TextBlock Text="可一次多选或直接拖入多个视频。单项失败不会阻止后续项目，重试会复用已有缓存。" Foreground="#344054"/></Border>
+        <Border Grid.Row="1" Background="{StaticResource Brush.Surface.Info}" CornerRadius="6" Padding="12" Margin="0,18,0,12"><TextBlock Text="可一次多选或直接拖入多个视频。单项失败不会阻止后续项目，重试会复用已有缓存。" Foreground="{StaticResource Brush.Text.Primary}"/></Border>
         <Border Grid.Row="2" Background="White" CornerRadius="9" Padding="10">
             <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" RowHeaderWidth="0" GridLinesVisibility="Horizontal">
                 <DataGrid.Columns>
@@ -23,12 +23,12 @@
             </DataGrid>
         </Border>
         <Grid Grid.Row="3" Margin="0,16,0,0">
-            <TextBlock Text="{Binding Message}" Foreground="#667085" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Message}" Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
             <WrapPanel HorizontalAlignment="Right">
                 <Button Content="打开字幕" Click="OpenSubtitle_OnClick"/>
                 <Button Content="从断点重试失败项" ToolTip="重新进入处理流水线，并自动跳过已有有效缓存的阶段" Click="Retry_OnClick" IsEnabled="{Binding CanEdit}"/>
                 <Button Content="停止队列" Click="Cancel_OnClick"/>
-                <Button Content="开始队列" Click="Start_OnClick" Background="#315EFB" Foreground="White" BorderThickness="0" IsEnabled="{Binding CanEdit}"/>
+                <Button Content="开始队列" Click="Start_OnClick" Background="{StaticResource Brush.Brand.Default}" Foreground="White" BorderThickness="0" IsEnabled="{Binding CanEdit}"/>
                 <Button Content="关闭" Click="Close_OnClick"/>
             </WrapPanel>
         </Grid>

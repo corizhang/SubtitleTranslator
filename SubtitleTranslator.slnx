@@ -11,6 +11,7 @@
     <Project Path="src/SubtitleTranslator.Translation/SubtitleTranslator.Translation.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SubtitleTranslator.App.UiTests/SubtitleTranslator.App.UiTests.csproj" />
     <Project Path="tests/SubtitleTranslator.Domain.Tests/SubtitleTranslator.Domain.Tests.csproj" />
     <Project Path="tests/SubtitleTranslator.IntegrationTests/SubtitleTranslator.IntegrationTests.csproj" />
     <Project Path="tests/SubtitleTranslator.Subtitles.Tests/SubtitleTranslator.Subtitles.Tests.csproj" />

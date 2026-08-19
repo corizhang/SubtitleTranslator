@@ -31,7 +31,4 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/>
     </Style>
 
-    <Style x:Key="PageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource Text.PageTitle}"/>
-    <Style x:Key="SectionTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource Text.SectionTitle}"/>
-    <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource Text.FieldLabel}"/>
 </ResourceDictionary>
