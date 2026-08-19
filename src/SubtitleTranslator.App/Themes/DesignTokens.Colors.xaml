@@ -28,6 +28,8 @@
     <SolidColorBrush x:Key="Brush.Surface.Subtle" Color="{StaticResource Palette.Neutral.50}"/>
     <SolidColorBrush x:Key="Brush.Surface.Muted" Color="{StaticResource Palette.Neutral.100}"/>
     <SolidColorBrush x:Key="Brush.Surface.Selected" Color="#F5F7FF"/>
+    <SolidColorBrush x:Key="Brush.Surface.Info" Color="#EEF3FF"/>
+    <SolidColorBrush x:Key="Brush.Surface.Danger" Color="#FFF4ED"/>
     <SolidColorBrush x:Key="Brush.Surface.Video" Color="#0B101A"/>
     <SolidColorBrush x:Key="Brush.Surface.Sidebar" Color="#151D31"/>
     <SolidColorBrush x:Key="Brush.Surface.SidebarHover" Color="#22304E"/>
@@ -42,7 +44,10 @@
     <SolidColorBrush x:Key="Brush.Border.Default" Color="{StaticResource Palette.Neutral.200}"/>
     <SolidColorBrush x:Key="Brush.Border.Strong" Color="{StaticResource Palette.Neutral.300}"/>
     <SolidColorBrush x:Key="Brush.Status.Success" Color="{StaticResource Palette.Success.600}"/>
+    <SolidColorBrush x:Key="Brush.Status.SuccessTextStrong" Color="#176B47"/>
+    <SolidColorBrush x:Key="Brush.Status.SuccessIcon" Color="#2A9D68"/>
     <SolidColorBrush x:Key="Brush.Status.Warning" Color="#F59E0B"/>
+    <SolidColorBrush x:Key="Brush.Status.WarningIcon" Color="#E48A31"/>
     <SolidColorBrush x:Key="Brush.Status.Danger" Color="{StaticResource Palette.Danger.600}"/>
     <SolidColorBrush x:Key="Brush.Status.SuccessSubtle" Color="{StaticResource Palette.Success.50}"/>
     <SolidColorBrush x:Key="Brush.Status.WarningSubtle" Color="{StaticResource Palette.Warning.50}"/>
@@ -51,6 +56,7 @@
     <SolidColorBrush x:Key="Brush.Status.SuccessText" Color="#087A4B"/>
     <SolidColorBrush x:Key="Brush.Status.WarningText" Color="{StaticResource Palette.Warning.600}"/>
     <SolidColorBrush x:Key="Brush.Status.DangerText" Color="#D92D20"/>
+    <SolidColorBrush x:Key="Brush.Icon.Neutral" Color="#8091B2"/>
 
     <!-- Compatibility aliases; new work should use semantic keys above. -->
     <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>

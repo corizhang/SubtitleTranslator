@@ -37,4 +37,8 @@
     <Style x:Key="ProductTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"><Setter Property="MinHeight" Value="{StaticResource Size.Control.Default}"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
     <Style x:Key="ProductComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="MinHeight" Value="{StaticResource Size.Control.Default}"/></Style>
     <Style x:Key="BadgeStyle" TargetType="Border"><Setter Property="CornerRadius" Value="{StaticResource Radius.Badge}"/><Setter Property="Padding" Value="5,1"/></Style>
+    <Style x:Key="PageHeaderStyle" TargetType="Border"><Setter Property="Background" Value="{StaticResource Brush.Surface.Default}"/><Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}"/><Setter Property="BorderThickness" Value="0,0,0,1"/></Style>
+    <Style x:Key="PageFooterStyle" TargetType="Border"><Setter Property="Background" Value="{StaticResource Brush.Surface.Default}"/><Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}"/><Setter Property="BorderThickness" Value="0,1,0,0"/></Style>
+    <Style x:Key="SummaryCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}"><Setter Property="Padding" Value="18,14"/></Style>
+    <Style x:Key="StatusBadgeStyle" TargetType="Border" BasedOn="{StaticResource BadgeStyle}"><Setter Property="Background" Value="{StaticResource Brush.Surface.Muted}"/><Setter Property="Padding" Value="8,3"/></Style>
 </ResourceDictionary>

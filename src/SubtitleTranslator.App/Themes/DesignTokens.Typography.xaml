@@ -9,6 +9,7 @@
     <sys:Double x:Key="Font.Size.SectionTitle">17</sys:Double>
     <sys:Double x:Key="Font.Size.EditorTitle">23</sys:Double>
     <sys:Double x:Key="Font.Size.PageTitle">27</sys:Double>
+    <sys:Double x:Key="Font.Size.Kpi">26</sys:Double>
 
     <Style x:Key="Text.PageTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{StaticResource Font.Size.PageTitle}"/>

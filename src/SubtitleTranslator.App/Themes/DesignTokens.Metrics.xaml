@@ -27,10 +27,12 @@
     <sys:Double x:Key="Size.IconButton.Default">38</sys:Double>
     <!-- Grid definitions require GridLength resources; Double cannot be assigned at runtime. -->
     <GridLength x:Key="Size.Header.Page">76</GridLength>
+    <GridLength x:Key="Size.Header.Feature">86</GridLength>
     <GridLength x:Key="Size.Footer.Action">64</GridLength>
     <GridLength x:Key="Size.Sidebar.Width">220</GridLength>
     <GridLength x:Key="Size.Editor.ListPane">370</GridLength>
     <GridLength x:Key="Size.Editor.InspectorPane">330</GridLength>
+    <GridLength x:Key="Size.Inspector.Default">320</GridLength>
     <sys:Double x:Key="Size.Editor.VideoMaxHeight">640</sys:Double>
 
     <CornerRadius x:Key="ControlCornerRadius">7</CornerRadius>
