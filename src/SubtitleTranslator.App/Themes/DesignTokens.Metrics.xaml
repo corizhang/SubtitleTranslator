@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- 4 px spacing scale. -->
+    <sys:Double x:Key="Space.1">4</sys:Double>
+    <sys:Double x:Key="Space.2">8</sys:Double>
+    <sys:Double x:Key="Space.3">12</sys:Double>
+    <sys:Double x:Key="Space.4">16</sys:Double>
+    <sys:Double x:Key="Space.5">20</sys:Double>
+    <sys:Double x:Key="Space.6">24</sys:Double>
+    <sys:Double x:Key="Space.8">32</sys:Double>
+    <sys:Double x:Key="Space.10">40</sys:Double>
+
+    <Thickness x:Key="Inset.Control.Default">16,8</Thickness>
+    <Thickness x:Key="Inset.Control.Compact">8,4</Thickness>
+    <Thickness x:Key="Inset.Card.Default">20</Thickness>
+    <Thickness x:Key="Inset.Page.Default">30,24,30,26</Thickness>
+    <Thickness x:Key="Gap.Section.Default">0,16,0,0</Thickness>
+
+    <CornerRadius x:Key="Radius.Badge">999</CornerRadius>
+    <CornerRadius x:Key="Radius.Control">7</CornerRadius>
+    <CornerRadius x:Key="Radius.Card">11</CornerRadius>
+    <CornerRadius x:Key="Radius.Panel">9</CornerRadius>
+
+    <sys:Double x:Key="Size.Control.Compact">32</sys:Double>
+    <sys:Double x:Key="Size.Control.Default">38</sys:Double>
+    <sys:Double x:Key="Size.IconButton.Default">38</sys:Double>
+    <sys:Double x:Key="Size.Header.Page">76</sys:Double>
+    <sys:Double x:Key="Size.Footer.Action">64</sys:Double>
+    <sys:Double x:Key="Size.Sidebar.Width">220</sys:Double>
+    <sys:Double x:Key="Size.Editor.ListPane">370</sys:Double>
+    <sys:Double x:Key="Size.Editor.InspectorPane">330</sys:Double>
+    <sys:Double x:Key="Size.Editor.VideoMaxHeight">640</sys:Double>
+
+    <StaticResource x:Key="ControlCornerRadius" ResourceKey="Radius.Control"/>
+    <StaticResource x:Key="CardCornerRadius" ResourceKey="Radius.Card"/>
+</ResourceDictionary>

@@ -125,7 +125,8 @@ public partial class SubtitleEditorPage : UserControl
     private void CenterWorkspace_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         var availableHeight = Math.Max(260, e.NewSize.Height - 200);
-        VideoFrame.Height = Math.Min(640, Math.Min(e.NewSize.Width * 9d / 16d, availableHeight));
+        var maximumHeight = (double)FindResource("Size.Editor.VideoMaxHeight");
+        VideoFrame.Height = Math.Min(maximumHeight, Math.Min(e.NewSize.Width * 9d / 16d, availableHeight));
     }
     private void Validate_OnClick(object sender, RoutedEventArgs e) => viewModel.Validate();
     private void NudgeStart_OnClick(object sender, RoutedEventArgs e) => Nudge(true, sender is Button { Tag: string value } ? int.Parse(value) : 0);

@@ -7,95 +7,15 @@
              DispatcherUnhandledException="App_OnDispatcherUnhandledException">
     <Application.Resources>
         <ResourceDictionary>
-        <ResourceDictionary.MergedDictionaries>
-            <ui:ThemesDictionary Theme="Light" />
-            <ui:ControlsDictionary />
-        </ResourceDictionary.MergedDictionaries>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>
-        <SolidColorBrush x:Key="SidebarBrush" Color="#151D31"/>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F6BFF"/>
-        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#4058D9"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#182033"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#667085"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#E4E7EC"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#16A36A"/>
-        <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#D64545"/>
-        <CornerRadius x:Key="ControlCornerRadius">7</CornerRadius>
-        <CornerRadius x:Key="CardCornerRadius">11</CornerRadius>
-
-        <Style TargetType="Window">
-            <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
-            <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
-            <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
-        </Style>
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}"/>
-            <Setter Property="Padding" Value="20"/>
-        </Style>
-        <Style x:Key="PageTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="27"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        </Style>
-        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="17"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        </Style>
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#475467"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-        </Style>
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="18,9"/>
-            <Setter Property="MinHeight" Value="38"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource ControlCornerRadius}" SnapsToDevicePixels="True"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{StaticResource PrimaryHoverBrush}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.84"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#A9B8FF"/><Setter TargetName="Chrome" Property="BorderThickness" Value="2"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Background" Value="#D0D5DD"/><Setter Property="Foreground" Value="#F8FAFC"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-            <Setter Property="BorderBrush" Value="#C9D0DC"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="MinHeight" Value="38"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource ControlCornerRadius}" SnapsToDevicePixels="True"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#F5F7FF"/><Setter TargetName="Chrome" Property="BorderBrush" Value="#9AACFF"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#E9EEFF"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/><Setter TargetName="Chrome" Property="BorderThickness" Value="2"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Background" Value="#F2F4F7"/><Setter TargetName="Chrome" Property="BorderBrush" Value="#E4E7EC"/><Setter Property="Foreground" Value="#98A2B3"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="NavigationButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#D7DDEC"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Padding" Value="18,13"/>
-            <Setter Property="Margin" Value="10,3"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="7"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#22304E"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#29437F"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#223A70"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="SelectedNavigationButtonStyle" TargetType="Button" BasedOn="{StaticResource NavigationButtonStyle}">
-            <Setter Property="Background" Value="#29437F"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light"/>
+                <ui:ControlsDictionary/>
+                <ResourceDictionary Source="Themes/DesignTokens.Colors.xaml"/>
+                <ResourceDictionary Source="Themes/DesignTokens.Metrics.xaml"/>
+                <ResourceDictionary Source="Themes/DesignTokens.Typography.xaml"/>
+                <ResourceDictionary Source="Themes/ComponentStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
