@@ -381,9 +381,17 @@ public partial class SubtitleEditorPage : UserControl
         SpeedSelector.Visibility = size.Width >= 650 ? Visibility.Visible : Visibility.Collapsed;
         VolumeSlider.Visibility = size.Width >= 720 ? Visibility.Visible : Visibility.Collapsed;
         LoopCueButton.Visibility = size.Width >= 780 ? Visibility.Visible : Visibility.Collapsed;
+        var horizontalMargin = immersive ? 0d : 32d;
+        var availableWidth = Math.Max(1, size.Width - horizontalMargin);
         var availableHeight = Math.Max(260, size.Height - (immersive ? 88 : 200));
         var maximumHeight = immersive ? double.PositiveInfinity : (double)FindResource("Size.Editor.VideoMaxHeight");
-        VideoFrame.Height = Math.Min(maximumHeight, Math.Min(size.Width * 9d / 16d, availableHeight));
+        var frameHeight = Math.Min(maximumHeight, Math.Min(availableWidth * 9d / 16d, availableHeight));
+        var frameWidth = Math.Min(availableWidth, frameHeight * 16d / 9d);
+        VideoFrame.Height = frameHeight;
+        VideoFrame.Width = frameWidth;
+        VideoFrame.HorizontalAlignment = HorizontalAlignment.Center;
+        PlayerControls.Width = frameWidth;
+        PlayerControls.HorizontalAlignment = HorizontalAlignment.Center;
     }
     private void Validate_OnClick(object sender, RoutedEventArgs e) => viewModel.Validate();
     private void NudgeStart_OnClick(object sender, RoutedEventArgs e) => Nudge(true, sender is Button { Tag: string value } ? int.Parse(value) : 0);

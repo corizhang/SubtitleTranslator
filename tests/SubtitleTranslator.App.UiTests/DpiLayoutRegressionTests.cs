@@ -36,6 +36,7 @@ public sealed class DpiLayoutRegressionTests
                 var center = Assert.IsType<Grid>(page.FindName("CenterWorkspace"));
                 var footer = Assert.IsType<Border>(page.FindName("EditorFooter"));
                 var playerControls = Assert.IsType<Border>(page.FindName("PlayerControls"));
+                var videoFrame = Assert.IsType<Border>(page.FindName("VideoFrame"));
                 var playbackSlider = Assert.IsType<Slider>(page.FindName("PlaybackSlider"));
 
                 Assert.True(all.ActualHeight >= 38, $"Filter height failed at {scale:P0}.");
@@ -46,6 +47,8 @@ public sealed class DpiLayoutRegressionTests
                 Assert.True(footer.ActualHeight >= 60, $"Footer clipped at {scale:P0}.");
                 Assert.True(playerControls.ActualHeight >= 80, $"Player controls clipped at {scale:P0}.");
                 Assert.True(playbackSlider.ActualWidth >= 500, $"Player seek bar too narrow at {scale:P0}.");
+                Assert.InRange(Math.Abs(videoFrame.ActualWidth - playerControls.ActualWidth), 0, 0.5);
+                Assert.InRange(videoFrame.ActualWidth / videoFrame.ActualHeight, 1.776, 1.779);
 
                 var immersiveButton = Assert.IsType<Button>(page.FindName("ImmersiveButton"));
                 var listPane = Assert.IsType<Border>(page.FindName("SubtitleListPane"));
