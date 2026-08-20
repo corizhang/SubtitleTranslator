@@ -12,6 +12,9 @@ public partial class WorkbenchDashboard : UserControl
     private MainWindow? MainWindow => Window.GetWindow(this) as MainWindow;
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
 
+    private void WorkbenchScroll_OnSizeChanged(object sender, SizeChangedEventArgs e) =>
+        DashboardContentGrid.MinHeight = Math.Max(0, e.NewSize.Height - 52);
+
     private async void SelectVideo_OnClick(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog

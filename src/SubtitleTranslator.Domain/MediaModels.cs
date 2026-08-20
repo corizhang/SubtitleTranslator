@@ -12,10 +12,11 @@ public sealed record AudioTrack(
 public sealed record MediaInfo(
     string Path,
     TimeSpan Duration,
-    IReadOnlyList<AudioTrack> AudioTracks);
+    IReadOnlyList<AudioTrack> AudioTracks,
+    int? VideoWidth = null,
+    int? VideoHeight = null);
 
 public sealed record AudioArtifact(
     string Path,
     TimeSpan? Duration,
     int SourceStreamIndex);
-

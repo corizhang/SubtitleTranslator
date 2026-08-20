@@ -76,6 +76,13 @@ public sealed class DpiLayoutRegressionTests
             Assert.True(dropArea.ActualHeight >= 280, "Workbench drop area no longer matches the primary task hierarchy.");
             Assert.True(recentTaskCard.ActualWidth > environmentCard.ActualWidth * 1.7, "Workbench column proportions regressed.");
             Assert.True(environmentCard.ActualWidth >= 280, "Environment rows are too narrow.");
+
+            dashboard.Measure(new Size(1500, 1200)); dashboard.Arrange(new Rect(0, 0, 1500, 1200)); dashboard.UpdateLayout();
+            var newTaskCard = Assert.IsType<Border>(dashboard.FindName("NewTaskCard"));
+            var storageCard = Assert.IsType<Border>(dashboard.FindName("StorageCard"));
+            Assert.True(recentTaskCard.ActualHeight >= 430, "Recent tasks should consume remaining maximized height.");
+            Assert.True(storageCard.ActualHeight >= 260, "Storage card should consume remaining maximized height.");
+            Assert.True(recentTaskCard.ActualHeight > newTaskCard.ActualHeight, "Maximized workbench still leaves unused space below recent tasks.");
         });
     }
 
@@ -115,6 +122,18 @@ public sealed class DpiLayoutRegressionTests
         Assert.InRange(rotated, 0.561, 0.564);
         var anamorphic = SubtitleEditorPage.CalculateDisplayAspectRatio(720, 576, 16, 15, VideoOrientation.TopLeft);
         Assert.InRange(anamorphic, 1.332, 1.334);
+    }
+
+    [Theory]
+    [InlineData("已完成", "查看")]
+    [InlineData("处理中", "查看进度")]
+    [InlineData("失败，可恢复", "重试")]
+    [InlineData("已取消，可恢复", "重新开始")]
+    [InlineData("可继续", "继续")]
+    public void RecentProject_UsesStatusSpecificAction(string status, string expected)
+    {
+        var project = new ProjectHistoryItem("project", "name", "missing.mkv", status, 0, DateTime.UtcNow, 0, [], []);
+        Assert.Equal(expected, project.ActionText);
     }
 
     private static void RunOnSta(Action action)

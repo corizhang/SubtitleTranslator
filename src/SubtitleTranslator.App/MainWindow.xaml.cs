@@ -86,6 +86,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     internal async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: ProjectHistoryItem project }) return;
+        if (project.Status == "已完成")
+        {
+            var subtitle = project.Artifacts.FirstOrDefault(item => item.Kind == "字幕" && File.Exists(item.FullPath));
+            if (subtitle is not null)
+                ShowSubtitleEditorPage(subtitle.FullPath, project.SourcePath, project.ProjectDirectory);
+            else
+                OpenProjectHistory_OnClick(sender, e);
+            return;
+        }
+        if (project.Status == "处理中" && viewModel.IsRunning &&
+            string.Equals(viewModel.SelectedFilePath, project.SourcePath, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowPage(null, WorkbenchNavigation);
+            return;
+        }
         if (viewModel.IsRunning)
         {
             MessageBox.Show(this, "已有任务正在处理，请等待完成或先取消当前任务。", "任务处理中", MessageBoxButton.OK, MessageBoxImage.Information);

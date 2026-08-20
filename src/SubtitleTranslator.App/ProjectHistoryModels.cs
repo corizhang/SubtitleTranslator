@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Windows.Data;
 using SubtitleTranslator.Domain;
 using SubtitleTranslator.Infrastructure;
+using SubtitleTranslator.Media;
+using System.Text.Json;
 
 namespace SubtitleTranslator.App;
 
@@ -31,10 +33,20 @@ public sealed record ProjectHistoryItem(
     };
     public bool SourceExists => File.Exists(SourcePath);
     public string SourceStateDisplay => SourceExists ? "原视频可用" : "原视频已移动或删除";
+    public string MediaDetails { get; init; } = "正在读取媒体信息…";
+    public string ActionText => Status switch
+    {
+        "已完成" => "查看",
+        "处理中" => "查看进度",
+        "失败，可恢复" => "重试",
+        "已取消，可恢复" => "重新开始",
+        _ => "继续"
+    };
 }
 
 public sealed class ProjectHistoryService
 {
+    private sealed record ProjectMediaMetadata(long Length, DateTime LastWriteTimeUtc, int? Width, int? Height, TimeSpan Duration);
     public string ProjectsRoot { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI字幕翻译", "projects");
 
@@ -60,6 +72,43 @@ public sealed class ProjectHistoryService
             catch (Exception exception) { AppFileLogger.Error($"读取项目历史失败：{directory}", exception); }
         }
         return result.OrderByDescending(x => x.UpdatedUtc).ToArray();
+    }
+
+    public async Task<ProjectHistoryItem> EnrichMediaMetadataAsync(ProjectHistoryItem project, string ffprobePath, CancellationToken cancellationToken)
+    {
+        if (!project.SourceExists) return project with { MediaDetails = "原视频已移动或删除" };
+        var source = new FileInfo(project.SourcePath);
+        var cachePath = Path.Combine(project.ProjectDirectory, "media-metadata.json");
+        ProjectMediaMetadata? metadata = null;
+        try
+        {
+            if (File.Exists(cachePath))
+            {
+                await using var input = File.OpenRead(cachePath);
+                var cached = await JsonSerializer.DeserializeAsync<ProjectMediaMetadata>(input, cancellationToken: cancellationToken);
+                if (cached is not null && cached.Length == source.Length && cached.LastWriteTimeUtc == source.LastWriteTimeUtc)
+                    metadata = cached;
+            }
+            if (metadata is null)
+            {
+                var media = await new FfprobeMediaProbe(ffprobePath).ProbeAsync(project.SourcePath, cancellationToken);
+                metadata = new ProjectMediaMetadata(source.Length, source.LastWriteTimeUtc, media.VideoWidth, media.VideoHeight, media.Duration);
+                Directory.CreateDirectory(project.ProjectDirectory);
+                await using var output = File.Create(cachePath);
+                await JsonSerializer.SerializeAsync(output, metadata, cancellationToken: cancellationToken);
+            }
+        }
+        catch (Exception exception)
+        {
+            AppFileLogger.Info($"无法读取最近项目媒体信息：{exception.Message}");
+            return project with { MediaDetails = "媒体信息不可用 丨 原视频可用" };
+        }
+
+        var resolution = metadata.Width > 0 && metadata.Height > 0 ? $"{metadata.Width}×{metadata.Height}" : "未知分辨率";
+        var duration = metadata.Duration >= TimeSpan.FromHours(1)
+            ? metadata.Duration.ToString("h\\:mm\\:ss")
+            : metadata.Duration.ToString("mm\\:ss");
+        return project with { MediaDetails = $"{resolution} 丨 {duration} 丨 原视频可用" };
     }
 
     public void DeleteCache(ProjectHistoryItem project)

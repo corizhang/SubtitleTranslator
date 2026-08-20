@@ -240,7 +240,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         var projects = await projectHistoryService.LoadAsync(CancellationToken.None);
         RecentProjects.Clear();
-        foreach (var project in projects.Take(5))
+        var recentProjects = await Task.WhenAll(projects.Take(5).Select(project =>
+            projectHistoryService.EnrichMediaMetadataAsync(project, settings.FfprobePath ?? "ffprobe", CancellationToken.None)));
+        foreach (var project in recentProjects)
             RecentProjects.Add(project);
         var totalBytes = projects.Sum(x => x.SizeBytes);
         ProjectStorageSummary = totalBytes >= 1024L * 1024 * 1024

@@ -17,7 +17,7 @@ public sealed class FfprobeMediaProbe(string executable = "ffprobe") : IMediaPro
         var result = await _runner.RunAsync(executable,
         [
             "-v", "error",
-            "-show_entries", "format=duration:stream=index,codec_type,codec_name,channels,sample_rate:stream_tags=language,title:stream_disposition=default",
+            "-show_entries", "format=duration:stream=index,codec_type,codec_name,channels,sample_rate,width,height:stream_tags=language,title:stream_disposition=default",
             "-of", "json",
             mediaPath
         ], null, cancellationToken);
@@ -29,11 +29,19 @@ public sealed class FfprobeMediaProbe(string executable = "ffprobe") : IMediaPro
         var root = document.RootElement;
         var duration = ParseDuration(root);
         var tracks = new List<AudioTrack>();
+        int? videoWidth = null;
+        int? videoHeight = null;
 
         if (root.TryGetProperty("streams", out var streams))
         {
             foreach (var stream in streams.EnumerateArray())
             {
+                if (GetString(stream, "codec_type") == "video" && videoWidth is null)
+                {
+                    videoWidth = GetInt32(stream, "width");
+                    videoHeight = GetInt32(stream, "height");
+                    continue;
+                }
                 if (GetString(stream, "codec_type") != "audio")
                     continue;
 
@@ -50,7 +58,7 @@ public sealed class FfprobeMediaProbe(string executable = "ffprobe") : IMediaPro
             }
         }
 
-        return new MediaInfo(Path.GetFullPath(mediaPath), duration, tracks);
+        return new MediaInfo(Path.GetFullPath(mediaPath), duration, tracks, videoWidth, videoHeight);
     }
 
     private static TimeSpan ParseDuration(JsonElement root)
@@ -73,4 +81,3 @@ public sealed class FfprobeMediaProbe(string executable = "ffprobe") : IMediaPro
             ? parsed
             : null;
 }
-
