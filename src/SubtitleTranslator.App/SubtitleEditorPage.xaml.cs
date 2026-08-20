@@ -34,6 +34,7 @@ public partial class SubtitleEditorPage : UserControl
     private bool muted;
     private bool immersive;
     private double volumeBeforeMute = 100;
+    private double videoAspectRatio = 16d / 9d;
     private EditableSubtitleCue? loopTargetCue;
 
     public SubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory, Action goBack)
@@ -88,10 +89,12 @@ public partial class SubtitleEditorPage : UserControl
     private void MediaOpened_OnHandler(object sender, RoutedEventArgs e)
     {
         mediaAvailable = true; PlayerFallback.Visibility = Visibility.Collapsed; VideoPlayer.Visibility = Visibility.Visible;
+        ApplyVideoGeometry(VideoPlayer.NaturalVideoWidth, VideoPlayer.NaturalVideoHeight);
         if (VideoPlayer.NaturalDuration.HasTimeSpan)
         {
             PlaybackSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalMilliseconds;
             PlaybackDurationText.Text = $"{VideoPlayer.NaturalDuration.TimeSpan:hh\\:mm\\:ss}";
+            UpdateTimelineGeometry(GetPlaybackPosition());
         }
         SeekToSelectedCue();
     }
@@ -114,6 +117,7 @@ public partial class SubtitleEditorPage : UserControl
             {
                 PlaybackSlider.Maximum = Math.Max(0, e.Length);
                 PlaybackDurationText.Text = TimeSpan.FromMilliseconds(e.Length).ToString("hh\\:mm\\:ss");
+                UpdateTimelineGeometry(GetPlaybackPosition());
             });
             vlcPlayer.Playing += (_, _) => Dispatcher.InvokeAsync(() =>
             {
@@ -129,6 +133,7 @@ public partial class SubtitleEditorPage : UserControl
             VlcVideoView.Visibility = Visibility.Visible;
             PlayerFallback.Visibility = Visibility.Collapsed;
             PlaybackEngineText.Text = "VLC 内嵌播放器";
+            _ = LoadVlcVideoGeometryAsync(vlcMedia);
             SeekToSelectedCue();
             return true;
         }
@@ -188,6 +193,7 @@ public partial class SubtitleEditorPage : UserControl
     private void OpenVideo() { if (File.Exists(videoPath)) Process.Start(new ProcessStartInfo(videoPath) { UseShellExecute = true }); }
     private void CueGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        UpdateTimelineGeometry(GetPlaybackPosition());
         if (!syncingCueFromPlayback) SeekToSelectedCue();
     }
     private void SeekToSelectedCue()
@@ -212,6 +218,7 @@ public partial class SubtitleEditorPage : UserControl
             updatingPlaybackSlider = false;
         }
         PlaybackTimeText.Text = $"{position:hh\\:mm\\:ss\\.fff}";
+        UpdateTimelineGeometry(position);
         if (playing) SyncCueToPlayback(position);
     }
     private void SyncCueToPlayback(TimeSpan position)
@@ -376,22 +383,92 @@ public partial class SubtitleEditorPage : UserControl
         => UpdateVideoFrameSize(e.NewSize);
     private void UpdateVideoFrameSize(Size size)
     {
-        PreviousCuePlayerButton.Visibility = NextCuePlayerButton.Visibility = size.Width >= 520 ? Visibility.Visible : Visibility.Collapsed;
-        PlaybackDurationText.Visibility = DurationSeparator.Visibility = size.Width >= 600 ? Visibility.Visible : Visibility.Collapsed;
-        SpeedSelector.Visibility = size.Width >= 650 ? Visibility.Visible : Visibility.Collapsed;
-        VolumeSlider.Visibility = size.Width >= 720 ? Visibility.Visible : Visibility.Collapsed;
-        LoopCueButton.Visibility = size.Width >= 780 ? Visibility.Visible : Visibility.Collapsed;
         var horizontalMargin = immersive ? 0d : 32d;
         var availableWidth = Math.Max(1, size.Width - horizontalMargin);
         var availableHeight = Math.Max(260, size.Height - (immersive ? 88 : 200));
         var maximumHeight = immersive ? double.PositiveInfinity : (double)FindResource("Size.Editor.VideoMaxHeight");
-        var frameHeight = Math.Min(maximumHeight, Math.Min(availableWidth * 9d / 16d, availableHeight));
-        var frameWidth = Math.Min(availableWidth, frameHeight * 16d / 9d);
-        VideoFrame.Height = frameHeight;
-        VideoFrame.Width = frameWidth;
+        var frameSize = CalculateVideoFrameSize(videoAspectRatio, availableWidth, availableHeight, maximumHeight);
+        PreviousCuePlayerButton.Visibility = NextCuePlayerButton.Visibility = frameSize.Width >= 520 ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackDurationText.Visibility = DurationSeparator.Visibility = frameSize.Width >= 600 ? Visibility.Visible : Visibility.Collapsed;
+        SpeedSelector.Visibility = frameSize.Width >= 650 ? Visibility.Visible : Visibility.Collapsed;
+        VolumeSlider.Visibility = frameSize.Width >= 720 ? Visibility.Visible : Visibility.Collapsed;
+        LoopCueButton.Visibility = frameSize.Width >= 780 ? Visibility.Visible : Visibility.Collapsed;
+        VideoFrame.Height = frameSize.Height;
+        VideoFrame.Width = frameSize.Width;
         VideoFrame.HorizontalAlignment = HorizontalAlignment.Center;
-        PlayerControls.Width = frameWidth;
+        PlayerControls.Width = frameSize.Width;
         PlayerControls.HorizontalAlignment = HorizontalAlignment.Center;
+    }
+    private async Task LoadVlcVideoGeometryAsync(VlcMedia media)
+    {
+        try
+        {
+            var status = await media.Parse(MediaParseOptions.ParseLocal, 5000, CancellationToken.None);
+            if (status != MediaParsedStatus.Done) return;
+            var track = media.Tracks.FirstOrDefault(item => item.TrackType == TrackType.Video);
+            if (track.TrackType != TrackType.Video) return;
+            var video = track.Data.Video;
+            var aspectRatio = CalculateDisplayAspectRatio(video.Width, video.Height, video.SarNum, video.SarDen, video.Orientation);
+            await Dispatcher.InvokeAsync(() => ApplyVideoAspectRatio(aspectRatio));
+        }
+        catch (Exception exception)
+        {
+            AppFileLogger.Info($"无法读取 VLC 视频画幅，继续使用 16:9：{exception.Message}");
+        }
+    }
+    private void ApplyVideoGeometry(double width, double height)
+    {
+        if (width <= 0 || height <= 0) return;
+        ApplyVideoAspectRatio(width / height);
+    }
+    private void ApplyVideoAspectRatio(double aspectRatio)
+    {
+        if (!double.IsFinite(aspectRatio) || aspectRatio <= 0) return;
+        videoAspectRatio = Math.Clamp(aspectRatio, 0.2d, 5d);
+        UpdateVideoFrameSize(CenterWorkspace.RenderSize);
+    }
+    internal static double CalculateDisplayAspectRatio(double width, double height, double sarNumerator, double sarDenominator, VideoOrientation orientation)
+    {
+        if (width <= 0 || height <= 0) return 16d / 9d;
+        if (sarNumerator > 0 && sarDenominator > 0) width *= sarNumerator / sarDenominator;
+        if (orientation is VideoOrientation.LeftTop or VideoOrientation.LeftBottom or VideoOrientation.RightTop or VideoOrientation.RightBottom)
+            (width, height) = (height, width);
+        return Math.Clamp(width / height, 0.2d, 5d);
+    }
+    internal static Size CalculateVideoFrameSize(double aspectRatio, double availableWidth, double availableHeight, double maximumHeight)
+    {
+        aspectRatio = Math.Clamp(aspectRatio, 0.2d, 5d);
+        var height = Math.Min(maximumHeight, Math.Min(availableWidth / aspectRatio, availableHeight));
+        return new Size(Math.Min(availableWidth, height * aspectRatio), height);
+    }
+    private void CueRangeTrack_OnSizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateTimelineGeometry(GetPlaybackPosition());
+    private void UpdateTimelineGeometry(TimeSpan position)
+    {
+        var durationMilliseconds = Math.Max(0, PlaybackSlider.Maximum);
+        TimelineStartText.Text = "00:00:00.000";
+        TimelineEndText.Text = TimeSpan.FromMilliseconds(durationMilliseconds).ToString("hh\\:mm\\:ss\\.fff");
+        var trackWidth = CueRangeTrack.ActualWidth;
+        if (durationMilliseconds <= 0 || trackWidth <= 0)
+        {
+            CueRangeIndicator.Width = 3;
+            Canvas.SetLeft(CueRangeIndicator, 0);
+            Canvas.SetLeft(CuePlayhead, 0);
+            return;
+        }
+
+        Canvas.SetLeft(CuePlayhead, Math.Clamp(position.TotalMilliseconds / durationMilliseconds * trackWidth, 0, trackWidth - 2));
+        if (viewModel.SelectedCue is null ||
+            !SrtDocumentService.TryParseTimestamp(viewModel.SelectedCue.StartText, out var start) ||
+            !SrtDocumentService.TryParseTimestamp(viewModel.SelectedCue.EndText, out var end)) return;
+
+        var startMilliseconds = Math.Clamp(start.TotalMilliseconds, 0, durationMilliseconds);
+        var endMilliseconds = Math.Clamp(end.TotalMilliseconds, startMilliseconds, durationMilliseconds);
+        var left = startMilliseconds / durationMilliseconds * trackWidth;
+        CueRangeIndicator.Width = Math.Max(3, (endMilliseconds - startMilliseconds) / durationMilliseconds * trackWidth);
+        Canvas.SetLeft(CueRangeIndicator, left);
+        TimelineCueRangeText.Text = $"{start:hh\\:mm\\:ss\\.fff}  →  {end:hh\\:mm\\:ss\\.fff}";
+        CueDurationText.Text = $"片段 {(end - start):mm\\:ss\\.fff}";
     }
     private void Validate_OnClick(object sender, RoutedEventArgs e) => viewModel.Validate();
     private void NudgeStart_OnClick(object sender, RoutedEventArgs e) => Nudge(true, sender is Button { Tag: string value } ? int.Parse(value) : 0);

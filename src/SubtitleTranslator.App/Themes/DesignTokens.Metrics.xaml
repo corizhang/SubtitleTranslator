@@ -35,5 +35,6 @@
     <GridLength x:Key="Size.Inspector.Default">320</GridLength>
     <sys:Double x:Key="Size.Editor.VideoMaxHeight">640</sys:Double>
     <GridLength x:Key="Size.Player.Controls">88</GridLength>
+    <GridLength x:Key="Size.Player.Timeline">112</GridLength>
 
 </ResourceDictionary>

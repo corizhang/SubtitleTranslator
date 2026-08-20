@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using LibVLCSharp.Shared;
 
 namespace SubtitleTranslator.App.UiTests;
 
@@ -84,6 +85,27 @@ public sealed class DpiLayoutRegressionTests
             Assert.Same(second, viewModel.FindCueAt(TimeSpan.FromSeconds(3)));
             Assert.Null(viewModel.FindCueAt(TimeSpan.FromSeconds(4)));
         });
+    }
+
+    [Theory]
+    [InlineData(4d / 3d)]
+    [InlineData(21d / 9d)]
+    [InlineData(9d / 16d)]
+    public void SubtitleEditor_FitsNativeVideoAspectRatios(double aspectRatio)
+    {
+        var size = SubtitleEditorPage.CalculateVideoFrameSize(aspectRatio, 1200, 640, 640);
+        Assert.InRange(size.Width / size.Height, aspectRatio - 0.001, aspectRatio + 0.001);
+        Assert.True(size.Width <= 1200);
+        Assert.True(size.Height <= 640);
+    }
+
+    [Fact]
+    public void SubtitleEditor_HonorsPixelAspectRatio_AndRotationMetadata()
+    {
+        var rotated = SubtitleEditorPage.CalculateDisplayAspectRatio(1920, 1080, 1, 1, VideoOrientation.RightTop);
+        Assert.InRange(rotated, 0.561, 0.564);
+        var anamorphic = SubtitleEditorPage.CalculateDisplayAspectRatio(720, 576, 16, 15, VideoOrientation.TopLeft);
+        Assert.InRange(anamorphic, 1.332, 1.334);
     }
 
     private static void RunOnSta(Action action)
