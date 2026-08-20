@@ -35,6 +35,8 @@ public sealed class DpiLayoutRegressionTests
                 var modified = Assert.IsType<ToggleButton>(page.FindName("ModifiedFilterButton"));
                 var center = Assert.IsType<Grid>(page.FindName("CenterWorkspace"));
                 var footer = Assert.IsType<Border>(page.FindName("EditorFooter"));
+                var playerControls = Assert.IsType<Border>(page.FindName("PlayerControls"));
+                var playbackSlider = Assert.IsType<Slider>(page.FindName("PlaybackSlider"));
 
                 Assert.True(all.ActualHeight >= 38, $"Filter height failed at {scale:P0}.");
                 Assert.InRange(Math.Abs(all.ActualWidth - error.ActualWidth), 0, 0.5);
@@ -42,7 +44,25 @@ public sealed class DpiLayoutRegressionTests
                 Assert.InRange(Math.Abs(suggestion.ActualWidth - modified.ActualWidth), 0, 0.5);
                 Assert.True(center.ActualWidth >= 700, $"Editor center too narrow at {scale:P0}.");
                 Assert.True(footer.ActualHeight >= 60, $"Footer clipped at {scale:P0}.");
+                Assert.True(playerControls.ActualHeight >= 80, $"Player controls clipped at {scale:P0}.");
+                Assert.True(playbackSlider.ActualWidth >= 500, $"Player seek bar too narrow at {scale:P0}.");
+
+                var immersiveButton = Assert.IsType<Button>(page.FindName("ImmersiveButton"));
+                var listPane = Assert.IsType<Border>(page.FindName("SubtitleListPane"));
+                var inspector = Assert.IsType<Border>(page.FindName("InspectorPane"));
+                immersiveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); page.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, listPane.Visibility);
+                Assert.Equal(Visibility.Collapsed, inspector.Visibility);
+                Assert.Equal(3, Grid.GetColumnSpan(center));
+                Assert.Equal(0, Grid.GetColumn(center));
             }
+
+            var compactPage = new SubtitleEditorPage("missing.srt", "missing.mkv", null, () => { });
+            compactPage.Measure(new Size(1146, 720)); compactPage.Arrange(new Rect(0, 0, 1146, 720)); compactPage.UpdateLayout();
+            Assert.Equal(Visibility.Collapsed, Assert.IsType<Slider>(compactPage.FindName("VolumeSlider")).Visibility);
+            Assert.Equal(Visibility.Collapsed, Assert.IsType<ComboBox>(compactPage.FindName("SpeedSelector")).Visibility);
+            Assert.Equal(Visibility.Collapsed, Assert.IsType<ToggleButton>(compactPage.FindName("LoopCueButton")).Visibility);
+            Assert.Equal(Visibility.Visible, Assert.IsType<Button>(compactPage.FindName("PlayButton")).Visibility);
         });
     }
 

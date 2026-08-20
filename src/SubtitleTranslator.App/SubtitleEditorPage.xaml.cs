@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using VlcMedia = LibVLCSharp.Shared.Media;
@@ -28,6 +29,12 @@ public partial class SubtitleEditorPage : UserControl
     private bool usingVlc;
     private long pendingVlcSeek = -1;
     private bool syncingCueFromPlayback;
+    private bool updatingPlaybackSlider;
+    private bool draggingPlaybackSlider;
+    private bool muted;
+    private bool immersive;
+    private double volumeBeforeMute = 100;
+    private EditableSubtitleCue? loopTargetCue;
 
     public SubtitleEditorPage(string subtitlePath, string videoPath, string? projectDirectory, Action goBack)
         : this(subtitlePath, videoPath, projectDirectory, null, goBack) { }
@@ -88,6 +95,7 @@ public partial class SubtitleEditorPage : UserControl
         }
         SeekToSelectedCue();
     }
+    private void MediaEnded_OnHandler(object sender, RoutedEventArgs e) { timer.Stop(); SetPlaying(false); }
     private void MediaFailed_OnHandler(object sender, ExceptionRoutedEventArgs e) => ShowPlayerFallback("内置预览不支持当前视频编码，请使用外部播放器");
     private bool TryInitializeVlc()
     {
@@ -97,6 +105,7 @@ public partial class SubtitleEditorPage : UserControl
             Core.Initialize(vlcRuntimePath);
             libVlc = new LibVLC(false, "--no-sub-autodetect-file", "--sub-track=-1");
             vlcPlayer = new MediaPlayer(libVlc);
+            vlcPlayer.Volume = (int)VolumeSlider.Value;
             vlcMedia = new VlcMedia(libVlc, new Uri(videoPath));
             vlcMedia.AddOption(":no-sub-autodetect-file");
             vlcMedia.AddOption(":sub-track=-1");
@@ -112,7 +121,7 @@ public partial class SubtitleEditorPage : UserControl
                 if (pendingVlcSeek >= 0) { vlcPlayer.Time = pendingVlcSeek; pendingVlcSeek = -1; }
             });
             vlcPlayer.EncounteredError += (_, _) => Dispatcher.InvokeAsync(FallbackFromVlc);
-            vlcPlayer.EndReached += (_, _) => Dispatcher.InvokeAsync(() => SetPlaying(false));
+            vlcPlayer.EndReached += (_, _) => Dispatcher.InvokeAsync(() => { timer.Stop(); SetPlaying(false); });
             VlcVideoView.MediaPlayer = vlcPlayer;
             usingVlc = true; mediaAvailable = true;
             VideoPlayer.Visibility = Visibility.Collapsed;
@@ -186,20 +195,22 @@ public partial class SubtitleEditorPage : UserControl
         if (viewModel.SelectedCue is null) return;
         if (mediaAvailable && SrtDocumentService.TryParseTimestamp(viewModel.SelectedCue.StartText, out var start))
         {
-            if (usingVlc && vlcPlayer is not null)
-            {
-                if (vlcPlayer.IsPlaying) vlcPlayer.Time = (long)start.TotalMilliseconds;
-                else pendingVlcSeek = (long)start.TotalMilliseconds;
-            }
-            else VideoPlayer.Position = start;
+            SeekTo(start);
+            if (LoopCueButton.IsChecked == true) loopTargetCue = viewModel.SelectedCue;
             UpdatePlaybackPosition();
         }
     }
     private void UpdatePlaybackPosition()
     {
         if (usingVlc && vlcPlayer is { Spu: not -1 }) vlcPlayer.SetSpu(-1);
-        var position = usingVlc ? TimeSpan.FromMilliseconds(Math.Max(0, vlcPlayer?.Time ?? 0)) : VideoPlayer.Position;
-        PlaybackSlider.Value = Math.Clamp(position.TotalMilliseconds, PlaybackSlider.Minimum, PlaybackSlider.Maximum);
+        var position = GetPlaybackPosition();
+        if (playing && ApplyCueLoop(position)) return;
+        if (!draggingPlaybackSlider)
+        {
+            updatingPlaybackSlider = true;
+            PlaybackSlider.Value = Math.Clamp(position.TotalMilliseconds, PlaybackSlider.Minimum, PlaybackSlider.Maximum);
+            updatingPlaybackSlider = false;
+        }
         PlaybackTimeText.Text = $"{position:hh\\:mm\\:ss\\.fff}";
         if (playing) SyncCueToPlayback(position);
     }
@@ -219,15 +230,124 @@ public partial class SubtitleEditorPage : UserControl
     }
     private void SetPlaying(bool value)
     {
-        playing = value; PlayButton.Content = value ? "暂停" : "播放";
+        playing = value;
+        PlayIcon.Symbol = value ? Wpf.Ui.Controls.SymbolRegular.Pause24 : Wpf.Ui.Controls.SymbolRegular.Play24;
         if (!value)
         {
             VlcSubtitleOverlay.Visibility = usingVlc ? Visibility.Visible : Visibility.Collapsed;
             SystemSubtitleOverlay.Visibility = usingVlc ? Visibility.Collapsed : Visibility.Visible;
         }
     }
-    private void PreviousIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(-1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
-    private void NextIssue_OnClick(object sender, RoutedEventArgs e) { viewModel.Validate(); viewModel.SelectIssue(1); CueGrid.ScrollIntoView(viewModel.SelectedCue); SeekToSelectedCue(); }
+    private TimeSpan GetPlaybackPosition() => usingVlc
+        ? TimeSpan.FromMilliseconds(Math.Max(0, vlcPlayer?.Time ?? 0)) : VideoPlayer.Position;
+
+    private void SeekTo(TimeSpan position)
+    {
+        var maximum = PlaybackSlider.Maximum > 0 ? TimeSpan.FromMilliseconds(PlaybackSlider.Maximum) : TimeSpan.MaxValue;
+        var target = position < TimeSpan.Zero ? TimeSpan.Zero : position > maximum ? maximum : position;
+        if (usingVlc && vlcPlayer is not null)
+        {
+            if (vlcPlayer.Length > 0 || vlcPlayer.IsPlaying) vlcPlayer.Time = (long)target.TotalMilliseconds;
+            else pendingVlcSeek = (long)target.TotalMilliseconds;
+        }
+        else VideoPlayer.Position = target;
+    }
+
+    private void Skip(int seconds) { if (mediaAvailable) { SeekTo(GetPlaybackPosition() + TimeSpan.FromSeconds(seconds)); UpdatePlaybackPosition(); } }
+    private void Skip_OnClick(object sender, RoutedEventArgs e)
+    { if (sender is Button { Tag: string seconds } && int.TryParse(seconds, out var value)) Skip(value); }
+
+    private void PlaybackSlider_OnDragStarted(object sender, MouseButtonEventArgs e) => draggingPlaybackSlider = true;
+    private void PlaybackSlider_OnDragCompleted(object sender, MouseButtonEventArgs e)
+    {
+        if (!draggingPlaybackSlider) return;
+        draggingPlaybackSlider = false;
+        SeekTo(TimeSpan.FromMilliseconds(PlaybackSlider.Value));
+        UpdatePlaybackPosition();
+    }
+    private void PlaybackSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (updatingPlaybackSlider || !draggingPlaybackSlider) return;
+        PlaybackTimeText.Text = TimeSpan.FromMilliseconds(e.NewValue).ToString("hh\\:mm\\:ss\\.fff");
+    }
+
+    private void VolumeSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (e.NewValue > 0) { muted = false; volumeBeforeMute = e.NewValue; }
+        ApplyVolume(muted ? 0 : e.NewValue);
+        UpdateVolumeIcon();
+    }
+    private void Mute_OnClick(object sender, RoutedEventArgs e)
+    {
+        muted = !muted;
+        if (!muted && VolumeSlider.Value <= 0) VolumeSlider.Value = Math.Max(25, volumeBeforeMute);
+        ApplyVolume(muted ? 0 : VolumeSlider.Value);
+        UpdateVolumeIcon();
+    }
+    private void ApplyVolume(double value)
+    {
+        if (vlcPlayer is not null) vlcPlayer.Volume = (int)Math.Round(value);
+        VideoPlayer.Volume = Math.Clamp(value / 100d, 0, 1);
+    }
+    private void UpdateVolumeIcon() => VolumeIcon.Symbol = muted || VolumeSlider.Value <= 0
+        ? Wpf.Ui.Controls.SymbolRegular.SpeakerMute24 : Wpf.Ui.Controls.SymbolRegular.Speaker224;
+
+    private void SpeedSelector_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SpeedSelector.SelectedItem is not ComboBoxItem { Tag: string value } ||
+            !double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var speed)) return;
+        vlcPlayer?.SetRate((float)speed);
+        VideoPlayer.SpeedRatio = speed;
+    }
+
+    private void LoopCue_OnClick(object sender, RoutedEventArgs e) =>
+        loopTargetCue = LoopCueButton.IsChecked == true ? viewModel.SelectedCue : null;
+
+    private bool ApplyCueLoop(TimeSpan position)
+    {
+        if (LoopCueButton.IsChecked != true || loopTargetCue is null || !loopTargetCue.TryToCue(out var cue)) return false;
+        if (position < cue.End && position >= cue.Start) return false;
+        SeekTo(cue.Start); SyncCueToPlayback(cue.Start); return true;
+    }
+
+    private void Immersive_OnClick(object sender, RoutedEventArgs e) => SetImmersive(!immersive);
+    private void SetImmersive(bool value)
+    {
+        immersive = value;
+        HeaderRow.Height = value ? new GridLength(0) : new GridLength(86);
+        FooterRow.Height = value ? new GridLength(0) : (GridLength)FindResource("Size.Footer.Action");
+        ListPaneColumn.Width = value ? new GridLength(0) : (GridLength)FindResource("Size.Editor.ListPane");
+        InspectorPaneColumn.Width = value ? new GridLength(0) : (GridLength)FindResource("Size.Editor.InspectorPane");
+        EditorHeader.Visibility = EditorFooter.Visibility = SubtitleListPane.Visibility = InspectorPane.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
+        CueTimelinePanel.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumn(CenterWorkspace, value ? 0 : 1); Grid.SetColumnSpan(CenterWorkspace, value ? 3 : 1);
+        VideoFrame.Margin = value ? new Thickness(0) : new Thickness(16, 16, 16, 0);
+        PlayerControls.Margin = value ? new Thickness(0) : new Thickness(16, 0, 16, 0);
+        VideoFrame.CornerRadius = value ? new CornerRadius(0) : new CornerRadius(9, 9, 0, 0);
+        VideoFrame.MaxHeight = value ? double.PositiveInfinity : (double)FindResource("Size.Editor.VideoMaxHeight");
+        ImmersiveIcon.Symbol = value ? Wpf.Ui.Controls.SymbolRegular.FullScreenMinimize24 : Wpf.Ui.Controls.SymbolRegular.FullScreenMaximize24;
+        ImmersiveButton.ToolTip = value ? "退出沉浸预览（Esc/F）" : "沉浸预览（F）";
+        UpdateVideoFrameSize(CenterWorkspace.RenderSize);
+    }
+
+    private void Page_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && immersive) { SetImmersive(false); e.Handled = true; return; }
+        if (Keyboard.FocusedElement is TextBoxBase or ComboBox) return;
+        switch (e.Key)
+        {
+            case Key.Space: Play_OnClick(PlayButton, new RoutedEventArgs()); break;
+            case Key.Left: Skip(-5); break;
+            case Key.Right: Skip(5); break;
+            case Key.Up: SelectAdjacentCue(-1); break;
+            case Key.Down: SelectAdjacentCue(1); break;
+            case Key.M: Mute_OnClick(this, new RoutedEventArgs()); break;
+            case Key.L: LoopCueButton.IsChecked = LoopCueButton.IsChecked != true; LoopCue_OnClick(this, new RoutedEventArgs()); break;
+            case Key.F: SetImmersive(!immersive); break;
+            default: return;
+        }
+        e.Handled = true;
+    }
     private void Filter_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton { Tag: string filter })
@@ -253,10 +373,17 @@ public partial class SubtitleEditorPage : UserControl
         SeekToSelectedCue();
     }
     private void CenterWorkspace_OnSizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateVideoFrameSize(e.NewSize);
+    private void UpdateVideoFrameSize(Size size)
     {
-        var availableHeight = Math.Max(260, e.NewSize.Height - 200);
-        var maximumHeight = (double)FindResource("Size.Editor.VideoMaxHeight");
-        VideoFrame.Height = Math.Min(maximumHeight, Math.Min(e.NewSize.Width * 9d / 16d, availableHeight));
+        PreviousCuePlayerButton.Visibility = NextCuePlayerButton.Visibility = size.Width >= 520 ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackDurationText.Visibility = DurationSeparator.Visibility = size.Width >= 600 ? Visibility.Visible : Visibility.Collapsed;
+        SpeedSelector.Visibility = size.Width >= 650 ? Visibility.Visible : Visibility.Collapsed;
+        VolumeSlider.Visibility = size.Width >= 720 ? Visibility.Visible : Visibility.Collapsed;
+        LoopCueButton.Visibility = size.Width >= 780 ? Visibility.Visible : Visibility.Collapsed;
+        var availableHeight = Math.Max(260, size.Height - (immersive ? 88 : 200));
+        var maximumHeight = immersive ? double.PositiveInfinity : (double)FindResource("Size.Editor.VideoMaxHeight");
+        VideoFrame.Height = Math.Min(maximumHeight, Math.Min(size.Width * 9d / 16d, availableHeight));
     }
     private void Validate_OnClick(object sender, RoutedEventArgs e) => viewModel.Validate();
     private void NudgeStart_OnClick(object sender, RoutedEventArgs e) => Nudge(true, sender is Button { Tag: string value } ? int.Parse(value) : 0);
