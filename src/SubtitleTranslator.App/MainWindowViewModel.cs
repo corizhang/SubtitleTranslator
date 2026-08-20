@@ -68,6 +68,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private double componentInstallProgress;
     private string componentInstallStatus = "可选择本地组件，或按需下载安装。";
     private string hardwareStatus = "正在检测 GPU 与 CUDA 环境……";
+    private string gpuNameDisplay = "正在检测图形设备";
+    private string gpuDetailDisplay = "请稍候…";
+    private bool gpuReady;
     private string selfTestStatus = "安装或选择运行组件后，可执行本地推理自检。";
     private bool isSelfTesting;
     private string validationMessage = "请先拖入或选择一个视频文件。";
@@ -190,6 +193,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public double ComponentInstallProgress { get => componentInstallProgress; private set => Set(ref componentInstallProgress, value); }
     public string ComponentInstallStatus { get => componentInstallStatus; private set => Set(ref componentInstallStatus, value); }
     public string HardwareStatus { get => hardwareStatus; private set => Set(ref hardwareStatus, value); }
+    public string GpuNameDisplay { get => gpuNameDisplay; private set => Set(ref gpuNameDisplay, value); }
+    public string GpuDetailDisplay { get => gpuDetailDisplay; private set => Set(ref gpuDetailDisplay, value); }
+    public bool GpuReady { get => gpuReady; private set => Set(ref gpuReady, value); }
     public string SelfTestStatus { get => selfTestStatus; private set => Set(ref selfTestStatus, value); }
     public bool IsSelfTesting { get => isSelfTesting; private set { Set(ref isSelfTesting, value); RefreshCommands(); } }
     public bool HasSavedApiKey => !string.IsNullOrWhiteSpace(deepSeekApiKey);
@@ -198,7 +204,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int TotalResourceCount => 6;
     public bool AreResourcesReady => environmentReport?.CanGenerateSubtitles == true && HasSavedApiKey;
     public string ResourceReadinessDisplay => AreResourcesReady ? "字幕处理环境已就绪" : $"已就绪 {ReadyResourceCount}/{TotalResourceCount}，仍有资源需要处理";
-    public string FfmpegStatus => ComponentStatus("ffmpeg", "ffprobe");
+    public string FfmpegStatus => ComponentStatus("ffmpeg");
+    public string FfprobeStatus => ComponentStatus("ffprobe");
     public string FfmpegPathDisplay => ComponentPath("ffmpeg");
     public string VlcStatus => ComponentStatus("vlc-runtime");
     public string VlcRuntimePathDisplay => ComponentPath("vlc-runtime");
@@ -209,6 +216,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string VadPathDisplay => settings.VadModelPath ?? "尚未选择 VAD 模型";
     public string WhisperModelStatus => ComponentStatus("whisper-model");
     public string WhisperModelPathDisplay => selectedModelPath ?? "尚未选择 Whisper 模型";
+    public string WhisperModelNameDisplay => selectedModelPath is null ? "尚未选择模型" : Path.GetFileName(selectedModelPath);
+    public bool FfmpegReady => IsComponentReady("ffmpeg");
+    public bool FfprobeReady => IsComponentReady("ffprobe");
+    public bool RuntimeReady => IsComponentReady("whisper-runtime");
+    public bool VadReady => IsComponentReady("vad");
+    public bool WhisperModelReady => IsComponentReady("whisper-model");
+    public bool VlcReady => IsComponentReady("vlc-runtime");
     public string SelectedPublishLocation { get => selectedPublishLocation; set { Set(ref selectedPublishLocation, value); Notify(nameof(PublicationPreview)); } }
     public string SelectedNamingStrategy { get => selectedNamingStrategy; set { Set(ref selectedNamingStrategy, value); Notify(nameof(PublicationPreview)); } }
     public string SelectedConflictPolicy { get => selectedConflictPolicy; set => Set(ref selectedConflictPolicy, value); }
@@ -831,6 +845,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var cuda = hardware.HasCudaToolkit ? $"CUDA：{hardware.CudaToolkitVersion}" : "CUDA Toolkit：未检测到";
         HardwareStatus = $"{gpu}  ·  {cuda}  ·  当前 runtime：{hardware.RuntimeKind}" +
             (hardware.Warnings.Count == 0 ? string.Empty : $"  ·  {string.Join("；", hardware.Warnings)}");
+        GpuReady = hardware.HasNvidiaGpu;
+        GpuNameDisplay = hardware.HasNvidiaGpu ? hardware.GpuName ?? "NVIDIA GPU" : "未检测到 NVIDIA GPU";
+        GpuDetailDisplay = hardware.HasNvidiaGpu
+            ? $"{(hardware.HasCudaToolkit ? $"CUDA {hardware.CudaToolkitVersion}" : "未检测到 CUDA Toolkit")} · {hardware.RuntimeKind}"
+            : "将使用 CPU 推理";
         Notify(nameof(NeedsInitialSetup));
         NotifyResourceProperties();
     }
@@ -849,10 +868,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void NotifyResourceProperties()
     {
         Notify(nameof(ReadyResourceCount)); Notify(nameof(AreResourcesReady)); Notify(nameof(ResourceReadinessDisplay));
-        Notify(nameof(FfmpegStatus)); Notify(nameof(FfmpegPathDisplay)); Notify(nameof(RuntimeStatus));
+        Notify(nameof(FfmpegStatus)); Notify(nameof(FfprobeStatus)); Notify(nameof(FfmpegPathDisplay)); Notify(nameof(RuntimeStatus));
         Notify(nameof(VlcStatus)); Notify(nameof(VlcRuntimePathDisplay)); Notify(nameof(VlcRuntimePath));
         Notify(nameof(RuntimePathDisplay)); Notify(nameof(VadStatus)); Notify(nameof(VadPathDisplay));
-        Notify(nameof(WhisperModelStatus)); Notify(nameof(WhisperModelPathDisplay));
+        Notify(nameof(WhisperModelStatus)); Notify(nameof(WhisperModelPathDisplay)); Notify(nameof(WhisperModelNameDisplay));
+        Notify(nameof(FfmpegReady)); Notify(nameof(FfprobeReady)); Notify(nameof(RuntimeReady)); Notify(nameof(VadReady));
+        Notify(nameof(WhisperModelReady)); Notify(nameof(VlcReady));
     }
 
     private bool CanInstallComponent() => !IsRunning && !IsModelDownloading && !IsComponentInstalling;

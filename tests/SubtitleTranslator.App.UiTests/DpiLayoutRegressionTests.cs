@@ -67,6 +67,15 @@ public sealed class DpiLayoutRegressionTests
             Assert.Equal(Visibility.Collapsed, Assert.IsType<ComboBox>(compactPage.FindName("SpeedSelector")).Visibility);
             Assert.Equal(Visibility.Collapsed, Assert.IsType<ToggleButton>(compactPage.FindName("LoopCueButton")).Visibility);
             Assert.Equal(Visibility.Visible, Assert.IsType<Button>(compactPage.FindName("PlayButton")).Visibility);
+
+            var dashboard = new WorkbenchDashboard();
+            dashboard.Measure(new Size(1060, 772)); dashboard.Arrange(new Rect(0, 0, 1060, 772)); dashboard.UpdateLayout();
+            var dropArea = Assert.IsType<Border>(dashboard.FindName("DropArea"));
+            var recentTaskCard = Assert.IsType<Border>(dashboard.FindName("RecentTaskCard"));
+            var environmentCard = Assert.IsType<Border>(dashboard.FindName("EnvironmentCard"));
+            Assert.True(dropArea.ActualHeight >= 280, "Workbench drop area no longer matches the primary task hierarchy.");
+            Assert.True(recentTaskCard.ActualWidth > environmentCard.ActualWidth * 1.7, "Workbench column proportions regressed.");
+            Assert.True(environmentCard.ActualWidth >= 280, "Environment rows are too narrow.");
         });
     }
 

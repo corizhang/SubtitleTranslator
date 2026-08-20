@@ -1,4 +1,4 @@
-<ui:FluentWindow x:Class="SubtitleTranslator.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+<ui:FluentWindow x:Class="SubtitleTranslator.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:local="clr-namespace:SubtitleTranslator.App"
         Title="AI 字幕翻译" Height="820" Width="1280" MinHeight="680" MinWidth="1040" Loaded="Window_OnLoaded" Closing="Window_OnClosing"
         Background="{StaticResource Brush.Surface.App}" WindowStartupLocation="CenterScreen" ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica">
     <Grid>
@@ -28,7 +28,7 @@
 
         <ui:TitleBar Grid.Column="1" Title="AI 字幕翻译" Background="{StaticResource Brush.Surface.Default}" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,0,0,1"/>
 
-        <Grid x:Name="WorkbenchPage" Grid.Column="1" Grid.Row="1">
+        <Grid x:Name="LegacyWorkbenchPage" Grid.Column="1" Grid.Row="1" Visibility="Collapsed">
             <Grid.RowDefinitions><RowDefinition Height="{StaticResource Size.Header.Page}"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Border Style="{StaticResource PageHeaderStyle}">
                 <Grid Margin="30,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="工作台" Style="{StaticResource Text.PageTitle}"/><TextBlock Text="从视频到可用字幕，只需确认内容并开始处理" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,3,0,0"/></StackPanel><Border HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource StatusBadgeStyle}" Padding="11,6"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Fill="{StaticResource Brush.Status.Success}" Margin="0,0,7,0"/><TextBlock Text="本地处理环境" Foreground="{StaticResource Brush.Text.Secondary}" FontSize="12"/></StackPanel></Border></Grid>
@@ -56,6 +56,7 @@
             </ScrollViewer>
             <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,1,0,0" Padding="24,14" Visibility="{Binding HasActiveWorkbenchTask, Converter={StaticResource BooleanToVisibilityConverter}}"><Grid><TextBlock Text="{Binding ValidationMessage}" Foreground="{StaticResource Brush.Status.Danger}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="660"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="取消任务" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButtonStyle}" Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}"/><Button Content="开始生成字幕" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="150" Margin="10,0,0,0" Visibility="{Binding HasSelectedFile, Converter={StaticResource BooleanToVisibilityConverter}}"/></StackPanel></Grid></Border>
         </Grid>
+        <local:WorkbenchDashboard x:Name="WorkbenchPage" Grid.Column="1" Grid.Row="1"/>
         <ContentControl x:Name="PageHost" Grid.Column="1" Grid.Row="1" Visibility="Collapsed"/>
     </Grid>
 </ui:FluentWindow>

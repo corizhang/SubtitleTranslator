@@ -40,7 +40,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(null, WorkbenchNavigation);
     }
 
-    private void OpenResources_OnClick(object sender, RoutedEventArgs e)
+    internal void OpenResources_OnClick(object sender, RoutedEventArgs e)
     {
         resourceManagementPage ??= new ResourceManagementPage(viewModel, ShowSetupWizard);
         ShowPage(resourceManagementPage, ResourcesNavigation);
@@ -58,19 +58,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(diagnosticsPage, DiagnosticsNavigation);
     }
 
-    private void OpenProjectsFolder_OnClick(object sender, RoutedEventArgs e)
+    internal void OpenProjectsFolder_OnClick(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(viewModel.ProjectStoragePath);
         Process.Start(new ProcessStartInfo(viewModel.ProjectStoragePath) { UseShellExecute = true });
     }
 
-    private void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e)
+    internal void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e)
     {
         batchQueuePage ??= new BatchQueuePage(viewModel);
         ShowPage(batchQueuePage, BatchNavigation);
     }
 
-    private void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
+    internal void OpenProjectHistory_OnClick(object sender, RoutedEventArgs e)
     {
         projectLibraryPage ??= new ProjectLibraryPage(viewModel, () => ShowPage(null, WorkbenchNavigation), ShowSubtitleEditorPage);
         ShowPage(projectLibraryPage, ProjectsNavigation);
@@ -83,7 +83,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(editor, ProjectsNavigation);
     }
 
-    private async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)
+    internal async void ResumeRecentProject_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: ProjectHistoryItem project }) return;
         if (viewModel.IsRunning)

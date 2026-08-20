@@ -69,5 +69,17 @@
     <SolidColorBrush x:Key="Brush.Status.WarningText" Color="{StaticResource Palette.Warning.600}"/>
     <SolidColorBrush x:Key="Brush.Status.DangerText" Color="#D92D20"/>
     <SolidColorBrush x:Key="Brush.Icon.Neutral" Color="#8091B2"/>
+    <SolidColorBrush x:Key="Brush.Environment.GpuSurface" Color="#EAF8EB"/>
+    <SolidColorBrush x:Key="Brush.Environment.GpuIcon" Color="#238636"/>
+    <SolidColorBrush x:Key="Brush.Environment.ProbeSurface" Color="#F3EDFF"/>
+    <SolidColorBrush x:Key="Brush.Environment.ProbeIcon" Color="#7C3AED"/>
+    <SolidColorBrush x:Key="Brush.Environment.ModelSurface" Color="#FFF4DF"/>
+    <SolidColorBrush x:Key="Brush.Environment.ModelIcon" Color="#C56A00"/>
+    <SolidColorBrush x:Key="Brush.Environment.RuntimeSurface" Color="#E9F7FF"/>
+    <SolidColorBrush x:Key="Brush.Environment.RuntimeIcon" Color="#087EA4"/>
+    <SolidColorBrush x:Key="Brush.Environment.TranslationSurface" Color="#FFF0F4"/>
+    <SolidColorBrush x:Key="Brush.Environment.TranslationIcon" Color="#C22C55"/>
+    <SolidColorBrush x:Key="Brush.Environment.OptionalSurface" Color="#EEF1F5"/>
+    <SolidColorBrush x:Key="Brush.Environment.OptionalIcon" Color="#566275"/>
 
 </ResourceDictionary>
