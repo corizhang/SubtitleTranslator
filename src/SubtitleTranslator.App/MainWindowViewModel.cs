@@ -144,6 +144,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public List<AudioTrackOption> AudioTracks { get; } = [];
     public ObservableCollection<ProjectHistoryItem> RecentProjects { get; } = [];
     public bool HasRecentProjects => RecentProjects.Count > 0;
+    public int AttentionActivityCount { get => RecentProjects.Count(x => x.Status is "处理中" or "失败，可恢复" or "已取消，可恢复" or "可继续"); set { } }
+    public int ReviewReadyCount { get => RecentProjects.Count(x => x.Status == "已完成"); set { } }
     public ICommand StartCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand OpenSubtitleCommand { get; }
@@ -161,8 +163,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand OpenVlcDownloadCommand { get; }
     public ICommand RunSelfTestCommand { get; }
 
-    public string? SelectedFilePath { get => selectedFilePath; private set { selectedFilePath = value; Notify(); Notify(nameof(SelectedFileDisplay)); Notify(nameof(HasSelectedFile)); Notify(nameof(HasActiveWorkbenchTask)); } }
+    public string? SelectedFilePath { get => selectedFilePath; private set { selectedFilePath = value; Notify(); Notify(nameof(SelectedFileDisplay)); Notify(nameof(SelectedFileName)); Notify(nameof(SelectedFileSizeDisplay)); Notify(nameof(HasSelectedFile)); Notify(nameof(HasActiveWorkbenchTask)); } }
     public string SelectedFileDisplay => SelectedFilePath ?? "支持 MKV、MP4、AVI、MOV、WMV、WebM";
+    public string SelectedFileName => SelectedFilePath is null ? "尚未选择视频" : Path.GetFileName(SelectedFilePath);
+    public string SelectedFileSizeDisplay => SelectedFilePath is not null && File.Exists(SelectedFilePath)
+        ? FormatFileSize(new FileInfo(SelectedFilePath).Length) : "—";
+    public string SelectedAudioSummary => AudioTracks.Count == 0 ? "尚未读取音轨" : $"已识别 {AudioTracks.Count} 条音轨 · {SelectedAudioTrack?.DisplayName}";
     public bool HasSelectedFile => SelectedFilePath is not null;
     public bool HasActiveWorkbenchTask => HasSelectedFile || IsRunning;
     public string ProjectStoragePath => projectHistoryService.ProjectsRoot;
@@ -173,7 +179,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string SelectedSpeechModel { get => selectedSpeechModel; set { Set(ref selectedSpeechModel, value); RefreshCommands(); } }
     public string SelectedTranslationProvider { get => selectedTranslationProvider; set => Set(ref selectedTranslationProvider, value); }
     public string SelectedSourceLanguage { get => selectedSourceLanguage; set => Set(ref selectedSourceLanguage, value); }
-    public AudioTrackOption? SelectedAudioTrack { get => selectedAudioTrack; set => Set(ref selectedAudioTrack, value); }
+    public AudioTrackOption? SelectedAudioTrack { get => selectedAudioTrack; set { Set(ref selectedAudioTrack, value); Notify(nameof(SelectedAudioSummary)); } }
     public bool TranslationQaEnabled { get => translationQaEnabled; set => Set(ref translationQaEnabled, value); }
     public bool IsRunning { get => isRunning; private set { Set(ref isRunning, value); Notify(nameof(HasActiveWorkbenchTask)); RefreshCommands(); } }
     public string ValidationMessage { get => validationMessage; private set => Set(ref validationMessage, value); }
@@ -244,7 +250,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RecentProjects.Clear();
         var activityProjects = projects.OrderBy(project => project.ActivityPriority).ThenByDescending(project => project.UpdatedUtc).Take(5);
         var recentProjects = await Task.WhenAll(activityProjects.Select(project =>
-            projectHistoryService.EnrichMediaMetadataAsync(project, settings.FfprobePath ?? "ffprobe", CancellationToken.None)));
+            projectHistoryService.EnrichMediaMetadataAsync(project, settings.FfprobePath ?? "ffprobe", CancellationToken.None, settings.FfmpegPath ?? "ffmpeg")));
         foreach (var project in recentProjects)
             RecentProjects.Add(project);
         var totalBytes = projects.Sum(x => x.SizeBytes);
@@ -258,7 +264,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ProjectStorageSummary += $" · 磁盘剩余 {drive.AvailableFreeSpace / 1024d / 1024 / 1024:0} GB";
         }
         catch { ProjectDriveUsagePercent = 0; }
-        Notify(nameof(HasRecentProjects));
+        Notify(nameof(HasRecentProjects)); Notify(nameof(AttentionActivityCount)); Notify(nameof(ReviewReadyCount));
     }
 
     public bool IsComponentReady(string id) => environmentReport?.Components
@@ -313,6 +319,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await LoadAudioTracksAsync();
     }
 
+    public void ClearSelectedVideo()
+    {
+        if (IsRunning) return;
+        SelectedFilePath = null; resumeProjectDirectory = null; AudioTracks.Clear(); SelectedAudioTrack = null;
+        ResultSubtitlePath = null; resultOutputDirectory = null; resultProjectDirectory = null;
+        ValidationMessage = string.Empty; StatusMessage = "请选择一个视频开始新的字幕任务。";
+        CurrentStage = "等待选择视频"; OverallProgress = 0;
+        Notify(nameof(AudioTracks)); Notify(nameof(SelectedAudioSummary)); Notify(nameof(PublicationPreview)); RefreshCommands();
+    }
+
     public async Task ResumeProjectAsync(ProjectHistoryItem project)
     {
         await SelectVideoAsync(project.SourcePath);
@@ -341,10 +357,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SelectedAudioTrack = AudioTracks.FirstOrDefault(x =>
                 media.AudioTracks.First(t => t.StreamIndex == x.StreamIndex).IsDefault) ?? AudioTracks.FirstOrDefault();
             Notify(nameof(AudioTracks));
+            Notify(nameof(SelectedAudioSummary));
             StatusMessage = AudioTracks.Count == 0 ? "视频中没有检测到音轨。" : $"检测到 {AudioTracks.Count} 条音轨。";
         }
         catch (Exception exception) { StatusMessage = $"暂时无法读取音轨：{exception.Message}"; }
     }
+
+    private static string FormatFileSize(long bytes) => bytes >= 1024L * 1024 * 1024
+        ? $"{bytes / 1024d / 1024 / 1024:0.0} GB"
+        : $"{bytes / 1024d / 1024:0} MB";
 
     public void Cancel()
     {

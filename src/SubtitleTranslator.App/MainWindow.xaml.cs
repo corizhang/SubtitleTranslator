@@ -52,7 +52,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowPage(settingsPage, SettingsNavigation);
     }
 
-    private void OpenDiagnostics_OnClick(object sender, RoutedEventArgs e)
+    internal void OpenDiagnostics_OnClick(object sender, RoutedEventArgs e)
     {
         diagnosticsPage ??= new DiagnosticsPage(viewModel);
         ShowPage(diagnosticsPage, DiagnosticsNavigation);

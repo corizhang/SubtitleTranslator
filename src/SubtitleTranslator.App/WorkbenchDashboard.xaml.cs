@@ -50,5 +50,7 @@ public partial class WorkbenchDashboard : UserControl
     private void OpenProjects_OnClick(object sender, RoutedEventArgs e) => MainWindow?.OpenProjectHistory_OnClick(sender, e);
     private void OpenResources_OnClick(object sender, RoutedEventArgs e) => MainWindow?.OpenResources_OnClick(sender, e);
     private void OpenProjectsFolder_OnClick(object sender, RoutedEventArgs e) => MainWindow?.OpenProjectsFolder_OnClick(sender, e);
+    private void OpenDiagnostics_OnClick(object sender, RoutedEventArgs e) => MainWindow?.OpenDiagnostics_OnClick(sender, e);
+    private void ClearVideo_OnClick(object sender, RoutedEventArgs e) => ViewModel?.ClearSelectedVideo();
     private void Resume_OnClick(object sender, RoutedEventArgs e) => MainWindow?.ResumeRecentProject_OnClick(sender, e);
 }
