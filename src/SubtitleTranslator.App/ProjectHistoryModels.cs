@@ -44,6 +44,17 @@ public sealed record ProjectHistoryItem(
     public string ResolutionDisplay => MediaDetailPart(0, "未知分辨率");
     public string DurationDisplay => MediaDetailPart(1, "未知时长");
     public string LibraryPrimaryActionText => Status == "已完成" ? "校订字幕" : ActionText;
+    public int ActivityPriority => Status switch { "处理中" => 0, "失败，可恢复" => 1, "已取消，可恢复" => 2, "可继续" => 3, "已完成" => 4, _ => 5 };
+    public string ActivityDisplay => Status switch
+    {
+        "处理中" => "正在处理",
+        "失败，可恢复" => "需要处理 · 可恢复",
+        "已取消，可恢复" => "已暂停 · 可恢复",
+        "可继续" => "尚未完成",
+        "已完成" => "字幕已生成",
+        _ => Status
+    };
+    public string WorkbenchActionText => Status == "已完成" ? "校订" : ActionText;
     public string ActionText => Status switch
     {
         "已完成" => "查看",

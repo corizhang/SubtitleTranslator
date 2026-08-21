@@ -66,7 +66,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     internal void OpenBatchQueue_OnClick(object sender, RoutedEventArgs e)
     {
-        batchQueuePage ??= new BatchQueuePage(viewModel);
+        batchQueuePage ??= new BatchQueuePage(viewModel, () => OpenProjectHistory_OnClick(this, new RoutedEventArgs()));
         ShowPage(batchQueuePage, BatchNavigation);
     }
 

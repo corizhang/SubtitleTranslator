@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SubtitleTranslator.Application;
 using SubtitleTranslator.Domain;
 using SubtitleTranslator.Infrastructure;
@@ -38,13 +39,16 @@ public sealed class BatchQueueItemViewModel : INotifyPropertyChanged
             return bytes >= 1024L * 1024 * 1024 ? $"{bytes / 1024d / 1024 / 1024:0.0} GB" : $"{bytes / 1024d / 1024:0} MB";
         }
     }
-    public BatchTaskState State { get => state; set { Set(ref state, value); Notify(nameof(StateDisplay)); } }
+    public BatchTaskState State { get => state; set { Set(ref state, value); Notify(nameof(StateDisplay)); Notify(nameof(IsCompleted)); Notify(nameof(OutcomeDisplay)); Notify(nameof(PrimaryActionText)); } }
     public string StateDisplay => State switch
-    { BatchTaskState.Pending => "等待", BatchTaskState.Running => "处理中", BatchTaskState.Completed => "完成", BatchTaskState.Failed => "失败", _ => "已取消" };
+    { BatchTaskState.Pending => "等待处理", BatchTaskState.Running => "正在处理", BatchTaskState.Completed => "已完成", BatchTaskState.Failed => "失败，可重试", _ => "已取消" };
+    public string OutcomeDisplay => State == BatchTaskState.Completed ? "项目已保存，可前往项目库继续校订或发布" : Stage;
+    public string PrimaryActionText => State == BatchTaskState.Completed ? "查看项目" : CanOpenSubtitle ? "打开字幕" : "暂无成果";
+    public bool IsCompleted => State == BatchTaskState.Completed;
     public double Progress { get => progress; set => Set(ref progress, value); }
-    public string Stage { get => stage; set => Set(ref stage, value); }
+    public string Stage { get => stage; set { Set(ref stage, value); Notify(nameof(OutcomeDisplay)); } }
     public string? Error { get => error; set => Set(ref error, value); }
-    public string? SubtitlePath { get => subtitlePath; set { Set(ref subtitlePath, value); Notify(nameof(CanOpenSubtitle)); } }
+    public string? SubtitlePath { get => subtitlePath; set { Set(ref subtitlePath, value); Notify(nameof(CanOpenSubtitle)); Notify(nameof(PrimaryActionText)); } }
     public bool CanOpenSubtitle => SubtitlePath is not null && File.Exists(SubtitlePath);
     public DateTime UpdatedUtc { get; set; }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -71,6 +75,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
     private CancellationTokenSource? cancellation;
     private BatchQueueItemViewModel? selectedItem;
     private bool isRunning;
+    private bool hideCompleted;
     private string message = "添加多个视频后即可开始顺序处理。";
 
     public BatchQueueViewModel(MainWindowViewModel main)
@@ -79,12 +84,18 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "AI字幕翻译", "batch-queue.json");
         store = new JsonBatchQueueStore(path);
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => !HideCompleted || item is not BatchQueueItemViewModel { State: BatchTaskState.Completed };
     }
 
     public ObservableCollection<BatchQueueItemViewModel> Items { get; } = [];
+    public ICollectionView ItemsView { get; }
     public BatchQueueItemViewModel? SelectedItem { get => selectedItem; set { selectedItem = value; Notify(); } }
     public bool IsRunning { get => isRunning; private set { isRunning = value; Notify(); Notify(nameof(CanEdit)); } }
     public bool CanEdit => !IsRunning;
+    public bool HideCompleted { get => hideCompleted; set { if (hideCompleted == value) return; hideCompleted = value; Notify(); ItemsView.Refresh(); Notify(nameof(VisibleCount)); } }
+    public int VisibleCount => ItemsView.Cast<object>().Count();
+    public bool CanClearCompleted => !IsRunning && CompletedCount > 0;
     public string Message { get => message; private set { message = value; Notify(); } }
     public int TotalCount => Items.Count;
     public int ReadyCount => Items.Count(x => x.CanProcess && x.State == BatchTaskState.Pending);
@@ -125,6 +136,15 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         SelectedItem = Items.FirstOrDefault();
         await SaveAsync();
         UpdateSummary();
+    }
+
+    public async Task ClearCompletedAsync()
+    {
+        if (IsRunning) return;
+        foreach (var item in Items.Where(x => x.State == BatchTaskState.Completed).ToArray()) Items.Remove(item);
+        ItemsView.Refresh();
+        SelectedItem = ItemsView.Cast<BatchQueueItemViewModel>().FirstOrDefault();
+        await SaveAsync(); UpdateSummary();
     }
 
     public async Task RerunPreflightAsync()
@@ -212,6 +232,9 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         Notify(nameof(CompletedCount));
         Notify(nameof(QueueProgress));
         Notify(nameof(QueueProgressDisplay));
+        Notify(nameof(CanClearCompleted));
+        Notify(nameof(VisibleCount));
+        ItemsView.Refresh();
     }
     private static string StageName(string stage) => stage switch
     { "probe" => "读取媒体", "audio" => "提取音频", "transcription" or "transcribe" => "语音识别", "translation" => "翻译", "translation-qa" => "翻译 QA", "final-qc" => "最终质检", "export" => "导出字幕", _ => "处理中" };

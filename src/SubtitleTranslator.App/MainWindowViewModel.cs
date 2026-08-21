@@ -242,7 +242,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         var projects = await projectHistoryService.LoadAsync(CancellationToken.None);
         RecentProjects.Clear();
-        var recentProjects = await Task.WhenAll(projects.Take(5).Select(project =>
+        var activityProjects = projects.OrderBy(project => project.ActivityPriority).ThenByDescending(project => project.UpdatedUtc).Take(5);
+        var recentProjects = await Task.WhenAll(activityProjects.Select(project =>
             projectHistoryService.EnrichMediaMetadataAsync(project, settings.FfprobePath ?? "ffprobe", CancellationToken.None)));
         foreach (var project in recentProjects)
             RecentProjects.Add(project);

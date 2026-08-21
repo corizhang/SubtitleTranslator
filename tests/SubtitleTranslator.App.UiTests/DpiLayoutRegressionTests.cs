@@ -167,6 +167,29 @@ public sealed class DpiLayoutRegressionTests
         Assert.False(project.HasThumbnail);
     }
 
+    [Fact]
+    public void BatchCompletionPointsToProjectLibraryInsteadOfActingAsPermanentHistory()
+    {
+        var item = new BatchQueueItemViewModel(new SubtitleTranslator.Application.BatchQueueEntry(
+            Guid.NewGuid(), "missing.mkv", SubtitleTranslator.Application.BatchTaskState.Completed,
+            100, "字幕已生成", null, "missing.srt", DateTime.UtcNow));
+
+        Assert.Equal("已完成", item.StateDisplay);
+        Assert.Equal("查看项目", item.PrimaryActionText);
+        Assert.Contains("项目库", item.OutcomeDisplay);
+    }
+
+    [Fact]
+    public void WorkbenchActivityPrioritizesRecoverableWorkOverCompletedProjects()
+    {
+        var failed = new ProjectHistoryItem("failed", "failed", "missing.mkv", "失败，可恢复", 40, DateTime.UtcNow, 0, [], []);
+        var completed = new ProjectHistoryItem("completed", "completed", "missing.mkv", "已完成", 100, DateTime.UtcNow, 0, [], []);
+
+        Assert.True(failed.ActivityPriority < completed.ActivityPriority);
+        Assert.Equal("需要处理 · 可恢复", failed.ActivityDisplay);
+        Assert.Equal("校订", completed.WorkbenchActionText);
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? failure = null;

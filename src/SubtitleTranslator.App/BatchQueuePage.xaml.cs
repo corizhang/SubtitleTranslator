@@ -8,12 +8,14 @@ namespace SubtitleTranslator.App;
 public partial class BatchQueuePage : UserControl
 {
     private readonly BatchQueueViewModel viewModel;
+    private readonly Action openProjects;
     private bool loaded;
 
-    public BatchQueuePage(MainWindowViewModel main)
+    public BatchQueuePage(MainWindowViewModel main, Action openProjects)
     {
         InitializeComponent();
         viewModel = new BatchQueueViewModel(main);
+        this.openProjects = openProjects;
         DataContext = viewModel;
     }
 
@@ -32,10 +34,15 @@ public partial class BatchQueuePage : UserControl
     }
     private async void Preflight_OnClick(object sender, RoutedEventArgs e) => await viewModel.RerunPreflightAsync();
     private async void Remove_OnClick(object sender, RoutedEventArgs e) => await viewModel.RemoveSelectedAsync();
+    private async void ClearCompleted_OnClick(object sender, RoutedEventArgs e) => await viewModel.ClearCompletedAsync();
     private async void Start_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync();
     private async void Retry_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync(true);
     private void Cancel_OnClick(object sender, RoutedEventArgs e) => viewModel.Cancel();
-    private void OpenSubtitle_OnClick(object sender, RoutedEventArgs e) => viewModel.OpenSubtitle();
+    private void OpenResult_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (viewModel.SelectedItem?.IsCompleted == true) openProjects();
+        else viewModel.OpenSubtitle();
+    }
     private void Page_OnDragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
     private async void Page_OnDrop(object sender, DragEventArgs e) { if (!viewModel.IsRunning && e.Data.GetData(DataFormats.FileDrop) is string[] files) await viewModel.AddFilesAsync(files); }
 }
