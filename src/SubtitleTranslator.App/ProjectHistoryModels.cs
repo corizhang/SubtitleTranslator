@@ -10,7 +10,11 @@ using System.Text.Json;
 
 namespace SubtitleTranslator.App;
 
-public sealed record ProjectStageItem(string Name, string State, DateTime UpdatedUtc, string Error);
+public sealed record ProjectStageItem(string Name, string State, DateTime UpdatedUtc, string Error)
+{
+    public string UpdatedDisplay => UpdatedUtc.ToLocalTime().ToString("MM/dd HH:mm");
+    public bool IsCompleted => State == "已完成";
+}
 public sealed record ProjectArtifactItem(string Name, string FullPath, string Kind, string SizeDisplay);
 
 public sealed record ProjectHistoryItem(
@@ -34,6 +38,9 @@ public sealed record ProjectHistoryItem(
     public bool SourceExists => File.Exists(SourcePath);
     public string SourceStateDisplay => SourceExists ? "原视频可用" : "原视频已移动或删除";
     public string MediaDetails { get; init; } = "正在读取媒体信息…";
+    public string ResolutionDisplay => MediaDetailPart(0, "未知分辨率");
+    public string DurationDisplay => MediaDetailPart(1, "未知时长");
+    public string LibraryPrimaryActionText => Status == "已完成" ? "校订字幕" : ActionText;
     public string ActionText => Status switch
     {
         "已完成" => "查看",
@@ -42,6 +49,11 @@ public sealed record ProjectHistoryItem(
         "已取消，可恢复" => "重新开始",
         _ => "继续"
     };
+    private string MediaDetailPart(int index, string fallback)
+    {
+        var parts = MediaDetails.Split('丨', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > index ? parts[index] : fallback;
+    }
 }
 
 public sealed class ProjectHistoryService
@@ -209,19 +221,37 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
     public int CompletedCount => Projects.Count(x => x.Status == "已完成");
     public int RecoverableCount => Projects.Count(x => x.Status != "已完成");
     public int MissingSourceCount => Projects.Count(x => !x.SourceExists);
+    public string TotalSizeDisplay
+    {
+        get
+        {
+            var bytes = Projects.Sum(x => x.SizeBytes);
+            return bytes switch
+            {
+                >= 1024L * 1024 * 1024 => $"{bytes / 1024d / 1024 / 1024:0.0} GB",
+                >= 1024L * 1024 => $"{bytes / 1024d / 1024:0} MB",
+                _ => $"{bytes / 1024d:0} KB"
+            };
+        }
+    }
     public string SearchText { get => searchText; set { if (searchText == value) return; searchText = value; Notify(); RefreshFilter(); } }
     public string StatusFilter { get => statusFilter; set { if (statusFilter == value) return; statusFilter = value; Notify(); RefreshFilter(); } }
     public string Message { get => message; private set { message = value; Notify(); } }
     public ProjectHistoryService Service => service;
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(string? ffprobePath = null)
     {
         var selectedPath = SelectedProject?.ProjectDirectory;
         Projects.Clear();
-        foreach (var item in await service.LoadAsync(CancellationToken.None)) Projects.Add(item);
+        var loaded = await service.LoadAsync(CancellationToken.None);
+        var enriched = string.IsNullOrWhiteSpace(ffprobePath)
+            ? loaded
+            : await Task.WhenAll(loaded.Select(item => service.EnrichMediaMetadataAsync(item, ffprobePath, CancellationToken.None)));
+        foreach (var item in enriched) Projects.Add(item);
         Notify(nameof(HasProjects)); Notify(nameof(TotalCount)); Notify(nameof(CompletedCount));
         Notify(nameof(RecoverableCount)); Notify(nameof(MissingSourceCount));
+        Notify(nameof(TotalSizeDisplay));
         ProjectsView.Refresh();
         SelectedProject = ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault(x => x.ProjectDirectory == selectedPath)
             ?? ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault();

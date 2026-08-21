@@ -136,6 +136,19 @@ public sealed class DpiLayoutRegressionTests
         Assert.Equal(expected, project.ActionText);
     }
 
+    [Fact]
+    public void ProjectLibrary_UsesMediaFactsAndCompletionSpecificAction()
+    {
+        var project = new ProjectHistoryItem("project", "name", "missing.mkv", "已完成", 100, DateTime.UtcNow, 0, [], [])
+        {
+            MediaDetails = "1920×1080丨42:18丨H.264"
+        };
+
+        Assert.Equal("1920×1080", project.ResolutionDisplay);
+        Assert.Equal("42:18", project.DurationDisplay);
+        Assert.Equal("校订字幕", project.LibraryPrimaryActionText);
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? failure = null;

@@ -206,6 +206,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string ResourceReadinessDisplay => AreResourcesReady ? "字幕处理环境已就绪" : $"已就绪 {ReadyResourceCount}/{TotalResourceCount}，仍有资源需要处理";
     public string FfmpegStatus => ComponentStatus("ffmpeg");
     public string FfprobeStatus => ComponentStatus("ffprobe");
+    public string FfprobePath => settings.FfprobePath ?? "ffprobe";
     public string FfmpegPathDisplay => ComponentPath("ffmpeg");
     public string VlcStatus => ComponentStatus("vlc-runtime");
     public string VlcRuntimePathDisplay => ComponentPath("vlc-runtime");
