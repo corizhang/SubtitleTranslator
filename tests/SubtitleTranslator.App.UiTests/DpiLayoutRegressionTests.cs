@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -154,6 +155,16 @@ public sealed class DpiLayoutRegressionTests
     {
         var viewModel = new ProjectHistoryViewModel();
         Assert.Equal("共 0 个项目  ·  0 个已完成  ·  占用 0 KB", viewModel.ProjectSummaryDisplay);
+    }
+
+    [Fact]
+    public void ProjectLibrary_ThumbnailFallsBackWhenCacheDoesNotExist()
+    {
+        var project = new ProjectHistoryItem("project", "name", "missing.mkv", "已完成", 100, DateTime.UtcNow, 0, [], [])
+        {
+            ThumbnailPath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.jpg")
+        };
+        Assert.False(project.HasThumbnail);
     }
 
     private static void RunOnSta(Action action)

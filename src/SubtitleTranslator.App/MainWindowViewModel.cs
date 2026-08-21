@@ -207,6 +207,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string FfmpegStatus => ComponentStatus("ffmpeg");
     public string FfprobeStatus => ComponentStatus("ffprobe");
     public string FfprobePath => settings.FfprobePath ?? "ffprobe";
+    public string FfmpegPath => settings.FfmpegPath ?? "ffmpeg";
     public string FfmpegPathDisplay => ComponentPath("ffmpeg");
     public string VlcStatus => ComponentStatus("vlc-runtime");
     public string VlcRuntimePathDisplay => ComponentPath("vlc-runtime");

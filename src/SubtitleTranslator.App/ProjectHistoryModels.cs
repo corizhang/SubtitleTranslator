@@ -7,6 +7,7 @@ using SubtitleTranslator.Domain;
 using SubtitleTranslator.Infrastructure;
 using SubtitleTranslator.Media;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace SubtitleTranslator.App;
 
@@ -38,6 +39,8 @@ public sealed record ProjectHistoryItem(
     public bool SourceExists => File.Exists(SourcePath);
     public string SourceStateDisplay => SourceExists ? "原视频可用" : "原视频已移动或删除";
     public string MediaDetails { get; init; } = "正在读取媒体信息…";
+    public string? ThumbnailPath { get; init; }
+    public bool HasThumbnail => !string.IsNullOrWhiteSpace(ThumbnailPath) && File.Exists(ThumbnailPath);
     public string ResolutionDisplay => MediaDetailPart(0, "未知分辨率");
     public string DurationDisplay => MediaDetailPart(1, "未知时长");
     public string LibraryPrimaryActionText => Status == "已完成" ? "校订字幕" : ActionText;
@@ -58,6 +61,7 @@ public sealed record ProjectHistoryItem(
 
 public sealed class ProjectHistoryService
 {
+    private static readonly SemaphoreSlim ThumbnailWorkers = new(2);
     private sealed record ProjectMediaMetadata(long Length, DateTime LastWriteTimeUtc, int? Width, int? Height, TimeSpan Duration);
     public string ProjectsRoot { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI字幕翻译", "projects");
@@ -86,7 +90,7 @@ public sealed class ProjectHistoryService
         return result.OrderByDescending(x => x.UpdatedUtc).ToArray();
     }
 
-    public async Task<ProjectHistoryItem> EnrichMediaMetadataAsync(ProjectHistoryItem project, string ffprobePath, CancellationToken cancellationToken)
+    public async Task<ProjectHistoryItem> EnrichMediaMetadataAsync(ProjectHistoryItem project, string ffprobePath, CancellationToken cancellationToken, string? ffmpegPath = null)
     {
         if (!project.SourceExists) return project with { MediaDetails = "原视频已移动或删除" };
         var source = new FileInfo(project.SourcePath);
@@ -120,7 +124,48 @@ public sealed class ProjectHistoryService
         var duration = metadata.Duration >= TimeSpan.FromHours(1)
             ? metadata.Duration.ToString("h\\:mm\\:ss")
             : metadata.Duration.ToString("mm\\:ss");
-        return project with { MediaDetails = $"{resolution} 丨 {duration} 丨 原视频可用" };
+        var enriched = project with { MediaDetails = $"{resolution} 丨 {duration} 丨 原视频可用" };
+        return string.IsNullOrWhiteSpace(ffmpegPath)
+            ? enriched
+            : enriched with { ThumbnailPath = await EnsureThumbnailAsync(enriched, ffmpegPath, metadata.Duration, cancellationToken) };
+    }
+
+    private static async Task<string?> EnsureThumbnailAsync(ProjectHistoryItem project, string ffmpegPath, TimeSpan duration, CancellationToken cancellationToken)
+    {
+        var cacheDirectory = Path.Combine(project.ProjectDirectory, "cache", "thumbnails");
+        var thumbnailPath = Path.Combine(cacheDirectory, "project-preview.jpg");
+        var source = new FileInfo(project.SourcePath);
+        if (File.Exists(thumbnailPath) && File.GetLastWriteTimeUtc(thumbnailPath) >= source.LastWriteTimeUtc) return thumbnailPath;
+
+        await ThumbnailWorkers.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(thumbnailPath) && File.GetLastWriteTimeUtc(thumbnailPath) >= source.LastWriteTimeUtc) return thumbnailPath;
+            Directory.CreateDirectory(cacheDirectory);
+            var seek = TimeSpan.FromSeconds(Math.Clamp(duration.TotalSeconds * 0.1, 3, 60));
+            var startInfo = new ProcessStartInfo(ffmpegPath)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-hide_banner"); startInfo.ArgumentList.Add("-loglevel"); startInfo.ArgumentList.Add("error");
+            startInfo.ArgumentList.Add("-ss"); startInfo.ArgumentList.Add(seek.ToString("c"));
+            startInfo.ArgumentList.Add("-i"); startInfo.ArgumentList.Add(project.SourcePath);
+            startInfo.ArgumentList.Add("-frames:v"); startInfo.ArgumentList.Add("1");
+            startInfo.ArgumentList.Add("-vf"); startInfo.ArgumentList.Add("scale=320:-2");
+            startInfo.ArgumentList.Add("-q:v"); startInfo.ArgumentList.Add("3");
+            startInfo.ArgumentList.Add("-y"); startInfo.ArgumentList.Add(thumbnailPath);
+            using var process = Process.Start(startInfo);
+            if (process is null) return null;
+            await process.WaitForExitAsync(cancellationToken);
+            return process.ExitCode == 0 && File.Exists(thumbnailPath) ? thumbnailPath : null;
+        }
+        catch (Exception exception)
+        {
+            AppFileLogger.Info($"无法生成项目缩略图：{exception.Message}");
+            return null;
+        }
+        finally { ThumbnailWorkers.Release(); }
     }
 
     public void DeleteCache(ProjectHistoryItem project)
@@ -241,14 +286,14 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
     public ProjectHistoryService Service => service;
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public async Task RefreshAsync(string? ffprobePath = null)
+    public async Task RefreshAsync(string? ffprobePath = null, string? ffmpegPath = null)
     {
         var selectedPath = SelectedProject?.ProjectDirectory;
         Projects.Clear();
         var loaded = await service.LoadAsync(CancellationToken.None);
         var enriched = string.IsNullOrWhiteSpace(ffprobePath)
             ? loaded
-            : await Task.WhenAll(loaded.Select(item => service.EnrichMediaMetadataAsync(item, ffprobePath, CancellationToken.None)));
+            : await Task.WhenAll(loaded.Select(item => service.EnrichMediaMetadataAsync(item, ffprobePath, CancellationToken.None, ffmpegPath)));
         foreach (var item in enriched) Projects.Add(item);
         Notify(nameof(HasProjects)); Notify(nameof(TotalCount)); Notify(nameof(CompletedCount));
         Notify(nameof(RecoverableCount)); Notify(nameof(MissingSourceCount));

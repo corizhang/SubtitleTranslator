@@ -22,8 +22,8 @@ public partial class ProjectLibraryPage : UserControl
         DataContext = viewModel;
     }
 
-    private async void Page_OnLoaded(object sender, RoutedEventArgs e) { if (!loaded) { loaded = true; await viewModel.RefreshAsync(mainViewModel.FfprobePath); } }
-    private async void Refresh_OnClick(object sender, RoutedEventArgs e) => await viewModel.RefreshAsync(mainViewModel.FfprobePath);
+    private async void Page_OnLoaded(object sender, RoutedEventArgs e) { if (!loaded) { loaded = true; await viewModel.RefreshAsync(mainViewModel.FfprobePath, mainViewModel.FfmpegPath); } }
+    private async void Refresh_OnClick(object sender, RoutedEventArgs e) => await viewModel.RefreshAsync(mainViewModel.FfprobePath, mainViewModel.FfmpegPath);
 
     private void PrimaryAction_OnClick(object sender, RoutedEventArgs e)
     {
@@ -94,7 +94,7 @@ public partial class ProjectLibraryPage : UserControl
         var project = RequireSelection();
         if (project is null || MessageBox.Show(Window.GetWindow(this), "将删除本项目的识别、翻译等缓存。字幕导出和项目记录会保留；下次继续时可能重新调用 DeepSeek 并产生费用。是否继续？", "清理项目缓存", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         viewModel.Service.DeleteCache(project);
-        await viewModel.RefreshAsync(mainViewModel.FfprobePath);
+        await viewModel.RefreshAsync(mainViewModel.FfprobePath, mainViewModel.FfmpegPath);
     }
 
     private async void DeleteProject_OnClick(object sender, RoutedEventArgs e)
@@ -102,7 +102,7 @@ public partial class ProjectLibraryPage : UserControl
         var project = RequireSelection();
         if (project is null || MessageBox.Show(Window.GetWindow(this), $"将永久删除项目“{project.Name}”的记录、缓存和导出字幕，但不会删除原视频。是否继续？", "删除整个项目", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         viewModel.Service.DeleteProject(project);
-        await viewModel.RefreshAsync(mainViewModel.FfprobePath);
+        await viewModel.RefreshAsync(mainViewModel.FfprobePath, mainViewModel.FfmpegPath);
     }
 
     private ProjectHistoryItem? RequireSelection()
