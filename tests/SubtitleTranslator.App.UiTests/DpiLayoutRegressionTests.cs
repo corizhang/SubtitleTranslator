@@ -149,6 +149,13 @@ public sealed class DpiLayoutRegressionTests
         Assert.Equal("校订字幕", project.LibraryPrimaryActionText);
     }
 
+    [Fact]
+    public void ProjectLibrary_SummaryIsExposedAsOneReadOnlyDisplayValue()
+    {
+        var viewModel = new ProjectHistoryViewModel();
+        Assert.Equal("共 0 个项目  ·  0 个已完成  ·  占用 0 KB", viewModel.ProjectSummaryDisplay);
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? failure = null;

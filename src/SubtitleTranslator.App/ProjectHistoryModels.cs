@@ -221,6 +221,7 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
     public int CompletedCount => Projects.Count(x => x.Status == "已完成");
     public int RecoverableCount => Projects.Count(x => x.Status != "已完成");
     public int MissingSourceCount => Projects.Count(x => !x.SourceExists);
+    public string ProjectSummaryDisplay => $"共 {TotalCount} 个项目  ·  {CompletedCount} 个已完成  ·  占用 {TotalSizeDisplay}";
     public string TotalSizeDisplay
     {
         get
@@ -251,7 +252,7 @@ public sealed class ProjectHistoryViewModel : INotifyPropertyChanged
         foreach (var item in enriched) Projects.Add(item);
         Notify(nameof(HasProjects)); Notify(nameof(TotalCount)); Notify(nameof(CompletedCount));
         Notify(nameof(RecoverableCount)); Notify(nameof(MissingSourceCount));
-        Notify(nameof(TotalSizeDisplay));
+        Notify(nameof(TotalSizeDisplay)); Notify(nameof(ProjectSummaryDisplay));
         ProjectsView.Refresh();
         SelectedProject = ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault(x => x.ProjectDirectory == selectedPath)
             ?? ProjectsView.Cast<ProjectHistoryItem>().FirstOrDefault();

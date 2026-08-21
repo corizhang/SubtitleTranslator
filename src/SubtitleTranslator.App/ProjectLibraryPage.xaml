@@ -49,6 +49,6 @@
             </Grid></Border>
         </Grid>
 
-        <Border Grid.Row="3" Style="{StaticResource PageFooterStyle}" Padding="30,0"><Grid><TextBlock VerticalAlignment="Center" Foreground="{StaticResource Brush.Text.Secondary}"><Run Text="共 "/><Run Text="{Binding TotalCount, Mode=OneWay}"/><Run Text=" 个项目  ·  "/><Run Text="{Binding CompletedCount, Mode=OneWay}"/><Run Text=" 个已完成  ·  占用 "/><Run Text="{Binding TotalSizeDisplay, Mode=OneWay}"/></TextBlock><TextBlock Text="{Binding Message, Mode=OneWay}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource Brush.Text.Secondary}"/></Grid></Border>
+        <Border Grid.Row="3" Style="{StaticResource PageFooterStyle}" Padding="30,0"><Grid><TextBlock Text="{Binding ProjectSummaryDisplay, Mode=OneWay}" VerticalAlignment="Center" Foreground="{StaticResource Brush.Text.Secondary}"/><TextBlock Text="{Binding Message, Mode=OneWay}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource Brush.Text.Secondary}"/></Grid></Border>
     </Grid>
 </UserControl>
