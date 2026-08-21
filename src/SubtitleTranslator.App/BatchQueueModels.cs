@@ -66,16 +66,36 @@ public sealed class BatchQueueItemViewModel : INotifyPropertyChanged
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
+public sealed class BatchArchiveViewModel(BatchArchive archive)
+{
+    public BatchArchive Archive { get; } = archive;
+    public Guid Id => Archive.Id;
+    public string Name => Archive.Name;
+    public DateTime ArchivedUtc => Archive.ArchivedUtc;
+    public string ArchivedDisplay => ArchivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    public IReadOnlyList<BatchArchiveItem> Items => Archive.Items;
+    public int TotalCount => Items.Count;
+    public int CompletedCount => Items.Count(x => x.State == BatchTaskState.Completed);
+    public int FailedCount => Items.Count(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled);
+    public string ResultDisplay => FailedCount == 0 ? "全部完成" : CompletedCount == 0 ? "未完成" : "部分完成";
+    public string SummaryDisplay => $"{TotalCount} 项 · {CompletedCount} 成功 · {FailedCount} 失败/取消";
+}
+
 public sealed class BatchQueueViewModel : INotifyPropertyChanged
 {
     internal static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     { ".mkv", ".mp4", ".avi", ".mov", ".wmv", ".webm", ".m4v" };
     private readonly MainWindowViewModel main;
     private readonly JsonBatchQueueStore store;
+    private readonly JsonBatchHistoryStore historyStore;
     private CancellationTokenSource? cancellation;
     private BatchQueueItemViewModel? selectedItem;
     private bool isRunning;
     private bool hideCompleted;
+    private BatchArchiveViewModel? selectedArchive;
+    private Guid currentBatchId = Guid.NewGuid();
+    private string currentBatchName = $"批次 {DateTime.Now:MM-dd HH:mm}";
+    private DateTime currentBatchCreatedUtc = DateTime.UtcNow;
     private string message = "添加多个视频后即可开始顺序处理。";
 
     public BatchQueueViewModel(MainWindowViewModel main)
@@ -84,18 +104,26 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "AI字幕翻译", "batch-queue.json");
         store = new JsonBatchQueueStore(path);
+        historyStore = new JsonBatchHistoryStore(Path.Combine(Path.GetDirectoryName(path)!, "batch-history.json"));
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => !HideCompleted || item is not BatchQueueItemViewModel { State: BatchTaskState.Completed };
     }
 
     public ObservableCollection<BatchQueueItemViewModel> Items { get; } = [];
+    public ObservableCollection<BatchArchiveViewModel> Archives { get; } = [];
     public ICollectionView ItemsView { get; }
     public BatchQueueItemViewModel? SelectedItem { get => selectedItem; set { selectedItem = value; Notify(); } }
+    public BatchArchiveViewModel? SelectedArchive { get => selectedArchive; set { selectedArchive = value; Notify(); Notify(nameof(HasSelectedArchive)); } }
+    public bool HasSelectedArchive => SelectedArchive is not null;
+    public string CurrentBatchName { get => currentBatchName; set { if (currentBatchName == value) return; currentBatchName = value; Notify(); _ = SaveAsync(); } }
+    public string CurrentBatchCreatedDisplay => currentBatchCreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
     public bool IsRunning { get => isRunning; private set { isRunning = value; Notify(); Notify(nameof(CanEdit)); } }
     public bool CanEdit => !IsRunning;
     public bool HideCompleted { get => hideCompleted; set { if (hideCompleted == value) return; hideCompleted = value; Notify(); ItemsView.Refresh(); Notify(nameof(VisibleCount)); } }
     public int VisibleCount => ItemsView.Cast<object>().Count();
     public bool CanClearCompleted => !IsRunning && CompletedCount > 0;
+    public bool CanArchive => !IsRunning && Items.Count > 0;
+    public int HistoryCount => Archives.Count;
     public string Message { get => message; private set { message = value; Notify(); } }
     public int TotalCount => Items.Count;
     public int ReadyCount => Items.Count(x => x.CanProcess && x.State == BatchTaskState.Pending);
@@ -109,8 +137,16 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
     {
         Items.Clear();
         var snapshot = await store.LoadAsync(CancellationToken.None);
+        currentBatchId = snapshot.BatchId ?? Guid.NewGuid();
+        currentBatchName = string.IsNullOrWhiteSpace(snapshot.Name) ? $"批次 {DateTime.Now:MM-dd HH:mm}" : snapshot.Name;
+        currentBatchCreatedUtc = snapshot.CreatedUtc ?? DateTime.UtcNow;
         foreach (var entry in snapshot.Items) Items.Add(new BatchQueueItemViewModel(entry));
+        Archives.Clear();
+        foreach (var batch in (await historyStore.LoadAsync(CancellationToken.None)).Batches.OrderByDescending(x => x.ArchivedUtc))
+            Archives.Add(new BatchArchiveViewModel(batch));
+        SelectedArchive = Archives.FirstOrDefault();
         SelectedItem = Items.FirstOrDefault();
+        Notify(nameof(CurrentBatchName)); Notify(nameof(CurrentBatchCreatedDisplay)); Notify(nameof(HistoryCount));
         UpdateSummary();
     }
 
@@ -145,6 +181,45 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         ItemsView.Refresh();
         SelectedItem = ItemsView.Cast<BatchQueueItemViewModel>().FirstOrDefault();
         await SaveAsync(); UpdateSummary();
+    }
+
+    public async Task ArchiveAndCreateNewAsync()
+    {
+        if (!CanArchive) return;
+        var projects = await new ProjectHistoryService().LoadAsync(CancellationToken.None);
+        var projectBySource = projects.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First().ProjectDirectory, StringComparer.OrdinalIgnoreCase);
+        var archive = new BatchArchive(currentBatchId, CurrentBatchName.Trim(), currentBatchCreatedUtc, DateTime.UtcNow,
+            Items.Select(item => new BatchArchiveItem(item.MediaPath, item.State, item.Progress, item.Stage, item.Error,
+                item.SubtitlePath, projectBySource.GetValueOrDefault(item.MediaPath))).ToArray());
+        var history = (await historyStore.LoadAsync(CancellationToken.None)).Batches.ToList();
+        history.RemoveAll(x => x.Id == archive.Id); history.Add(archive);
+        await historyStore.SaveAsync(new BatchArchiveSnapshot(1, history.OrderByDescending(x => x.ArchivedUtc).ToArray()), CancellationToken.None);
+        Archives.Insert(0, new BatchArchiveViewModel(archive)); SelectedArchive = Archives[0];
+        Items.Clear(); SelectedItem = null; hideCompleted = false;
+        currentBatchId = Guid.NewGuid(); currentBatchCreatedUtc = DateTime.UtcNow; currentBatchName = $"批次 {DateTime.Now:MM-dd HH:mm}";
+        Notify(nameof(CurrentBatchName)); Notify(nameof(CurrentBatchCreatedDisplay)); Notify(nameof(HideCompleted)); Notify(nameof(HistoryCount));
+        await SaveAsync(); UpdateSummary(); Message = "当前批次已归档，并已创建一个空白新批次。";
+    }
+
+    public async Task RecreateFromArchiveAsync(bool failedOnly)
+    {
+        if (IsRunning || SelectedArchive is null) return;
+        if (Items.Count > 0) { Message = "当前批次仍有项目，请先归档或清空后再从历史创建。"; return; }
+        var sourceItems = failedOnly
+            ? SelectedArchive.Items.Where(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled)
+            : SelectedArchive.Items;
+        await AddFilesAsync(sourceItems.Select(x => x.MediaPath));
+        CurrentBatchName = failedOnly ? $"{SelectedArchive.Name} · 失败项重试" : $"{SelectedArchive.Name} · 重新执行";
+        Message = failedOnly ? "已使用历史批次中的失败/取消项创建当前批次。" : "已使用历史批次全部项目创建当前批次。";
+    }
+
+    public async Task DeleteSelectedArchiveAsync()
+    {
+        if (SelectedArchive is null) return;
+        Archives.Remove(SelectedArchive); SelectedArchive = Archives.FirstOrDefault();
+        await historyStore.SaveAsync(new BatchArchiveSnapshot(1, Archives.Select(x => x.Archive).ToArray()), CancellationToken.None);
+        Notify(nameof(HistoryCount)); Message = "历史批次记录已删除；项目库和字幕文件未受影响。";
     }
 
     public async Task RerunPreflightAsync()
@@ -218,7 +293,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
             Process.Start(new ProcessStartInfo(SelectedItem.SubtitlePath!) { UseShellExecute = true });
     }
 
-    private Task SaveAsync() => store.SaveAsync(new BatchQueueSnapshot(1, Items.Select(x => x.ToEntry()).ToArray()), CancellationToken.None);
+    private Task SaveAsync() => store.SaveAsync(new BatchQueueSnapshot(2, Items.Select(x => x.ToEntry()).ToArray(), currentBatchId, CurrentBatchName, currentBatchCreatedUtc), CancellationToken.None);
     private void UpdateSummary()
     {
         Message = $"共 {Items.Count} 项：可处理 {Items.Count(x => x.CanProcess)}，需修正 {Items.Count(x => !x.CanProcess)}，处理中 {Items.Count(x => x.State == BatchTaskState.Running)}，完成 {Items.Count(x => x.State == BatchTaskState.Completed)}，失败/取消 {Items.Count(x => x.State is BatchTaskState.Failed or BatchTaskState.Cancelled)}。";
@@ -233,6 +308,7 @@ public sealed class BatchQueueViewModel : INotifyPropertyChanged
         Notify(nameof(QueueProgress));
         Notify(nameof(QueueProgressDisplay));
         Notify(nameof(CanClearCompleted));
+        Notify(nameof(CanArchive));
         Notify(nameof(VisibleCount));
         ItemsView.Refresh();
     }

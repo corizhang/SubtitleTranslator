@@ -190,6 +190,19 @@ public sealed class DpiLayoutRegressionTests
         Assert.Equal("校订", completed.WorkbenchActionText);
     }
 
+    [Fact]
+    public void ArchivedBatchSummarizesOutcomeWithoutDuplicatingProjectData()
+    {
+        var archive = new SubtitleTranslator.Application.BatchArchive(Guid.NewGuid(), "Season 1",
+            DateTime.UtcNow.AddHours(-1), DateTime.UtcNow,
+            [new SubtitleTranslator.Application.BatchArchiveItem("a.mkv", SubtitleTranslator.Application.BatchTaskState.Completed, 100, "完成", null, "a.srt", "project-a"),
+             new SubtitleTranslator.Application.BatchArchiveItem("b.mkv", SubtitleTranslator.Application.BatchTaskState.Failed, 42, "翻译", "API error", null, "project-b")]);
+        var viewModel = new BatchArchiveViewModel(archive);
+
+        Assert.Equal("部分完成", viewModel.ResultDisplay);
+        Assert.Equal("2 项 · 1 成功 · 1 失败/取消", viewModel.SummaryDisplay);
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? failure = null;

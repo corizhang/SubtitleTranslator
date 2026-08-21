@@ -35,6 +35,23 @@ public partial class BatchQueuePage : UserControl
     private async void Preflight_OnClick(object sender, RoutedEventArgs e) => await viewModel.RerunPreflightAsync();
     private async void Remove_OnClick(object sender, RoutedEventArgs e) => await viewModel.RemoveSelectedAsync();
     private async void ClearCompleted_OnClick(object sender, RoutedEventArgs e) => await viewModel.ClearCompletedAsync();
+    private async void Archive_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (viewModel.NeedsAttentionCount > 0 && MessageBox.Show(Window.GetWindow(this),
+            "当前批次仍有失败、取消或无法处理的项目。仍要结束并归档吗？", "归档当前批次",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        await viewModel.ArchiveAndCreateNewAsync();
+    }
+    private async void RecreateFailed_OnClick(object sender, RoutedEventArgs e) => await viewModel.RecreateFromArchiveAsync(true);
+    private async void RecreateAll_OnClick(object sender, RoutedEventArgs e) => await viewModel.RecreateFromArchiveAsync(false);
+    private async void DeleteArchive_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (viewModel.SelectedArchive is null || MessageBox.Show(Window.GetWindow(this),
+            "只删除这条批次执行记录，不会删除项目和字幕文件。是否继续？", "删除历史批次",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        await viewModel.DeleteSelectedArchiveAsync();
+    }
+    private void OpenProjects_OnClick(object sender, RoutedEventArgs e) => openProjects();
     private async void Start_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync();
     private async void Retry_OnClick(object sender, RoutedEventArgs e) => await viewModel.StartAsync(true);
     private void Cancel_OnClick(object sender, RoutedEventArgs e) => viewModel.Cancel();
